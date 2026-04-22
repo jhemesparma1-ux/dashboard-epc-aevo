@@ -245,24 +245,29 @@ async function loadAndRender() {
 
   let cifras;
   try {
-    const resp = await fetch(obra.url, {
-      method: 'GET',
-      redirect: 'follow'
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const resp = await fetch(obra.url, { signal: controller.signal, redirect: 'follow' });
+    clearTimeout(timer);
     if(!resp.ok) throw new Error('HTTP ' + resp.status);
     const json = await resp.json();
     if(!json.csv) throw new Error('Resposta sem dados CSV');
     const rows = parseCSV(json.csv);
     cifras = csvToCifras(rows);
+    if(!cifras.length) throw new Error('Nenhuma cifra encontrada');
   } catch(e) {
-    document.getElementById('main').innerHTML=`
-      <div style="text-align:center;padding:60px;color:var(--red);font-size:14px;line-height:2">
-        <div style="font-size:28px;margin-bottom:12px">⚠</div>
-        <b>Erro ao carregar planilha</b><br>
-        <span style="color:var(--muted);font-size:12px">${e.message}</span><br><br>
-        <button onclick="loadAndRender()" style="background:var(--accent);color:#000;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700">Tentar novamente</button>
-      </div>`;
-    return;
+    if(obra.cifras && obra.cifras.length) {
+      cifras = obra.cifras;
+    } else {
+      document.getElementById('main').innerHTML=`
+        <div style="text-align:center;padding:60px;color:var(--red);font-size:14px;line-height:2">
+          <div style="font-size:28px;margin-bottom:12px">⚠</div>
+          <b>Erro ao carregar planilha</b><br>
+          <span style="color:var(--muted);font-size:12px">${e.message}</span><br><br>
+          <button onclick="loadAndRender()" style="background:var(--accent);color:#000;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700">Tentar novamente</button>
+        </div>`;
+      return;
+    }
   }
 
   if(!cifras.length) {
