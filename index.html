@@ -218,13 +218,13 @@ const TOTAIS_BOM={orc:5535137.65,real:4130627.38,saldo:1404510.27,prov:1961879.5
 const OBRAS={
   planura:{
     nome:'UFV Planura IV',
-    url:null,
+    url:'/api/proxy?obra=planura',
     cifras:CIFRAS_PLANURA,
     totais:TOTAIS_PLANURA
   },
   bom:{
     nome:'UFV Bom Despacho',
-    url:null,
+    url:'/api/proxy?obra=bom',
     cifras:CIFRAS_BOM,
     totais:TOTAIS_BOM
   }
@@ -346,45 +346,74 @@ function parseCSV(text) {
 }
 
 function csvToCifras(rows) {
-  // linha 0 = cabeçalho, dados a partir da linha 1
-  const cifras = [];
+  if(!rows || rows.length < 2) return [];
+  
+  // Mapear cabeçalho dinamicamente
+  const hdr = rows[0].map(h => (h||'').trim().toUpperCase());
+  const idx = name => hdr.indexOf(name.toUpperCase());
+  
+  // Índices comuns
+  const iFAM  = idx('FAMÍLIA');
+  const iDESC = idx('DESCRIÇÃO');
+  const iORC  = idx('ORÇADO');
+  const iFD_T = idx('REAL FD - TOT');
+  const iAE_T = idx('REAL AEVO - TOT');
+  const iRPROV= idx('REAL - PROVISIONADO');
+  const iPROVT= idx('PROV - TOT');
+  const iREAL = idx('REAL - TOTAL');
+  const iSALDO= idx('REAL - SALDO ') >= 0 ? idx('REAL - SALDO ') : idx('SALDO');
+  const iPROJ = idx('PROJ - TOT') >= 0 ? idx('PROJ - TOT') : idx('PROJETADO R$');
+  const iSP   = idx('SALDO PROJETADO $');
+  
+  // Meses disponíveis
+  const MESES_ALL = ['OUT','NOV','DEZ','JAN','FEV','MAR','ABR','MAI','JUN'];
+  const mesIdx = {};
+  MESES_ALL.forEach(m => {
+    mesIdx[m] = {
+      fd:   hdr.findIndex((h,i) => h === `REAL FD - ${m}`),
+      aevo: hdr.findIndex((h,i) => h === `REAL AEVO - ${m}`),
+      proj: hdr.findIndex((h,i) => h === `PROJ - ${m}` || h === `PROJ -  ${m}`)
+    };
+  });
+
   const familias = ['EQUIPAMENTO','MÃO DE OBRA','MATERIAL','SERVIÇO','TRANSPORTE'];
+  const cifras = [];
+  let lastFam = '';
 
-  for(let i=1;i<rows.length;i++){
+  for(let i=1; i<rows.length; i++){
     const r = rows[i];
-    if(!r || r.length < 10) continue;
-    const fam = (r[C.FAMILIA]||'').trim().toUpperCase();
-    const desc = (r[C.DESCRICAO]||'').trim();
-    if(!desc || desc === 'Total Geral') continue;
-    // só linhas com família válida OU linhas de cifra (sem família mas com descrição)
-    const famValida = familias.includes(fam);
-    const isFamRow = famValida && desc.toUpperCase() === fam;
-    if(isFamRow) continue; // pular linha de totais de família
+    if(!r || r.length < 5) continue;
+    const fam  = (r[iFAM >= 0 ? iFAM : 1]||'').trim().toUpperCase();
+    const desc = (r[iDESC >= 0 ? iDESC : 2]||'').trim();
+    if(!desc || desc.toUpperCase().includes('TOTAL GERAL')) continue;
+    
+    if(familias.includes(fam)) lastFam = fam;
+    const familia = lastFam || fam;
+    if(!familias.includes(familia)) continue;
+    if(familias.includes(desc.toUpperCase()) && desc.toUpperCase() === familia) continue;
 
-    // família: usar a última família vista
-    let familia = fam || cifras[cifras.length-1]?.familia || '';
-    if(!familias.includes(familia)) {
-      // herdar família da última cifra
-      familia = cifras.length > 0 ? cifras[cifras.length-1].familia : 'OUTROS';
-    }
+    const meses = {};
+    MESES_ALL.forEach(m => {
+      const {fd, aevo, proj} = mesIdx[m];
+      const fv = fd >= 0 ? n(r[fd]) : 0;
+      const av = aevo >= 0 ? n(r[aevo]) : 0;
+      const pv = proj >= 0 ? n(r[proj]) : 0;
+      if(fv || av || pv) meses[m] = {fd:fv, aevo:av, proj:pv};
+    });
 
     cifras.push({
       familia,
-      descricao: desc,
-      orcado:     n(r[C.ORC]),
-      real_fd:    n(r[C.FD_TOT]),
-      real_aevo:  n(r[C.AE_TOT]),
-      real_total: n(r[C.REAL_TOTAL]),
-      saldo:      n(r[C.SALDO]),
-      projetado:  n(r[C.PROJETADO]),
-      meses:{
-        NOV:{fd:n(r[C.FD_NOV]),aevo:n(r[C.AE_NOV]),proj:n(r[C.PROJ_NOV])},
-        DEZ:{fd:n(r[C.FD_DEZ]),aevo:n(r[C.AE_DEZ]),proj:n(r[C.PROJ_DEZ])},
-        JAN:{fd:n(r[C.FD_JAN]),aevo:n(r[C.AE_JAN]),proj:n(r[C.PROJ_JAN])},
-        FEV:{fd:n(r[C.FD_FEV]),aevo:n(r[C.AE_FEV]),proj:n(r[C.PROJ_FEV])},
-        MAR:{fd:n(r[C.FD_MAR]),aevo:n(r[C.AE_MAR]),proj:n(r[C.PROJ_MAR])},
-        ABR:{fd:n(r[C.FD_ABR]),aevo:n(r[C.AE_ABR]),proj:n(r[C.PROJ_ABR])},
-      }
+      descricao:  desc,
+      orcado:     iORC >= 0 ? n(r[iORC]) : 0,
+      real_fd:    iFD_T >= 0 ? n(r[iFD_T]) : 0,
+      real_aevo:  iAE_T >= 0 ? n(r[iAE_T]) : 0,
+      real_prov:  iRPROV >= 0 ? n(r[iRPROV]) : 0,
+      prov_tot:   iPROVT >= 0 ? n(r[iPROVT]) : 0,
+      real_total: iREAL >= 0 ? n(r[iREAL]) : 0,
+      saldo:      iSALDO >= 0 ? n(r[iSALDO]) : 0,
+      projetado:  iPROJ >= 0 ? n(r[iPROJ]) : 0,
+      saldo_proj: iSP >= 0 ? n(r[iSP]) : 0,
+      meses
     });
   }
   return cifras;
