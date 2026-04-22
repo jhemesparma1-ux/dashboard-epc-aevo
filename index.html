@@ -430,64 +430,37 @@ async function selObra(o, btn) {
 async function loadAndRender() {
   const obra = OBRAS[cObra];
 
-  if(!obra.url) {
-    if(obra.cifras && obra.cifras.length) {
-      if(!document.getElementById('k0')){location.reload();return;}
-      render(obra.cifras, obra.totais);
-    } else {
-      document.getElementById('main').innerHTML=`<div style="text-align:center;padding:80px;color:var(--muted);font-size:14px">Dados de ${obra.nome} não disponíveis nesta versão.</div>`;
-      cM=cA=cD=null;
-    }
+  // Carregar dados hardcoded imediatamente
+  if(obra.cifras && obra.cifras.length) {
+    if(!document.getElementById('k0')){location.reload();return;}
+    render(obra.cifras, obra.totais);
+  } else {
+    document.getElementById('main').innerHTML=`<div style="text-align:center;padding:80px;color:var(--muted);font-size:14px">Dados de ${obra.nome} não disponíveis nesta versão.</div>`;
+    cM=cA=cD=null;
     return;
   }
 
-  showLoading('Carregando dados da planilha...');
-
-  let cifras;
+  // Tentar atualizar do Sheets em background (silencioso)
+  if(!obra.url) return;
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
-    const resp = await fetch(obra.url, { signal: controller.signal, redirect: 'follow' });
+    const timer = setTimeout(() => controller.abort(), 10000);
+    const resp = await fetch(obra.url, { signal: controller.signal });
     clearTimeout(timer);
-    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    if(!resp.ok) return;
     const text = await resp.text();
     let csv;
-    try {
-      const json = JSON.parse(text);
-      csv = json.csv || json.data || text;
-    } catch(e) {
-      csv = text;
-    }
-    if(!csv || csv.trim().length < 10) throw new Error('Resposta vazia');
+    try { const j = JSON.parse(text); csv = j.csv || j.data || text; } catch(e) { csv = text; }
+    if(!csv || csv.trim().length < 10) return;
     const rows = parseCSV(csv);
-    cifras = csvToCifras(rows);
-    if(!cifras.length) throw new Error('Nenhuma cifra encontrada');
+    const cifras = csvToCifras(rows);
+    if(!cifras.length) return;
+    // Atualizar com dados frescos do Sheets
+    obra.cifras = cifras;
+    if(document.getElementById('k0')) render(cifras, obra.totais);
   } catch(e) {
-    if(obra.cifras && obra.cifras.length) {
-      cifras = obra.cifras;
-    } else {
-      document.getElementById('main').innerHTML=`
-        <div style="text-align:center;padding:60px;color:var(--red);font-size:14px;line-height:2">
-          <div style="font-size:28px;margin-bottom:12px">⚠</div>
-          <b>Erro ao carregar planilha</b><br>
-          <span style="color:var(--muted);font-size:12px">${e.message}</span><br><br>
-          <button onclick="loadAndRender()" style="background:var(--accent);color:#000;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700">Tentar novamente</button>
-        </div>`;
-      return;
-    }
+    // silencioso — fallback já renderizado
   }
-
-  if(!cifras.length) {
-    document.getElementById('main').innerHTML=`<div style="text-align:center;padding:80px;color:var(--muted);font-size:14px">Nenhuma cifra encontrada na planilha.</div>`;
-    return;
-  }
-
-  // Restaurar estrutura do main se necessário
-  if(!document.getElementById('k0')) {
-    location.reload(); return;
-  }
-
-  render(cifras, obra.totais);
 }
 
 function render(cifras, totais) {
@@ -661,4 +634,3 @@ loadAndRender();
 </script>
 </body>
 </html>
-
