@@ -250,9 +250,16 @@ async function loadAndRender() {
     const resp = await fetch(obra.url, { signal: controller.signal, redirect: 'follow' });
     clearTimeout(timer);
     if(!resp.ok) throw new Error('HTTP ' + resp.status);
-    const json = await resp.json();
-    if(!json.csv) throw new Error('Resposta sem dados CSV');
-    const rows = parseCSV(json.csv);
+    const text = await resp.text();
+    let csv;
+    try {
+      const json = JSON.parse(text);
+      csv = json.csv || json.data || text;
+    } catch(e) {
+      csv = text;
+    }
+    if(!csv || csv.trim().length < 10) throw new Error('Resposta vazia');
+    const rows = parseCSV(csv);
     cifras = csvToCifras(rows);
     if(!cifras.length) throw new Error('Nenhuma cifra encontrada');
   } catch(e) {
