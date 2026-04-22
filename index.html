@@ -57,6 +57,60 @@ td:first-child{font-family:'Syne',sans-serif}
 .pos{color:var(--green)}.neg{color:var(--red)}.neu{color:var(--muted)}
 .leg{display:flex;gap:14px;font-size:11px;color:var(--muted);margin-bottom:10px}
 .ld{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:4px}
+
+/* ── MOBILE RESPONSIVO ────────────────────────────────── */
+@media (max-width: 768px) {
+  header{padding:10px 16px;border-top-width:2px}
+  header img{height:34px!important}
+  .badge{font-size:10px;padding:4px 8px}
+  .selbar{padding:10px 16px;gap:8px;flex-wrap:wrap}
+  .slab{font-size:9px}
+  .obtn{font-size:11px;padding:4px 10px}
+  main{padding:12px 14px;gap:12px}
+
+  /* KPIs: 2 colunas no mobile */
+  .krow{grid-template-columns:repeat(2,1fr);gap:8px}
+  .krow2{grid-template-columns:repeat(2,1fr);gap:6px;margin-top:-4px}
+  .kpi{padding:10px 12px;border-radius:8px}
+  .kpi2{padding:5px 10px;border-radius:6px}
+  .klab{font-size:9px;margin-bottom:4px}
+  .klab2{font-size:8px}
+  .kval{font-size:17px}
+  .kval2{font-size:12px}
+  .ksub{font-size:9px}
+
+  /* Painéis: coluna única */
+  .two{grid-template-columns:1fr}
+
+  /* Gráficos: altura reduzida */
+  #cM,#cA,#cFD{height:180px!important}
+  div[style*="height:240px"]{height:180px!important}
+  div[style*="height:220px"]{height:180px!important}
+  div[style*="height:190px"]{height:160px!important}
+
+  /* Tabela: scroll horizontal */
+  table{font-size:10px;min-width:600px}
+  th{padding:5px 6px;font-size:8px}
+  td{padding:5px 6px}
+
+  /* Desvio: altura menor */
+  #dw{min-height:200px!important}
+
+  /* Legenda menor */
+  .leg{font-size:10px;gap:10px;flex-wrap:wrap}
+  .ptit{font-size:9px;margin-bottom:8px}
+
+  /* Famílias */
+  .fn{width:70px;font-size:9px}
+  .fp{font-size:9px;width:35px}
+}
+
+@media (max-width: 420px) {
+  .krow{grid-template-columns:repeat(2,1fr)}
+  .kval{font-size:15px}
+  header img{height:28px!important}
+  .badge{display:none}
+}
 </style>
 </head>
 <body>
@@ -218,7 +272,61 @@ function showLoading(msg){
       <div style="width:32px;height:32px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite"></div>
       <span>${msg}</span>
     </div>
-    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>`;
+    <style>@keyframes spin{to{transform:rotate(360deg)}}
+/* ── MOBILE RESPONSIVO ────────────────────────────────── */
+@media (max-width: 768px) {
+  header{padding:10px 16px;border-top-width:2px}
+  header img{height:34px!important}
+  .badge{font-size:10px;padding:4px 8px}
+  .selbar{padding:10px 16px;gap:8px;flex-wrap:wrap}
+  .slab{font-size:9px}
+  .obtn{font-size:11px;padding:4px 10px}
+  main{padding:12px 14px;gap:12px}
+
+  /* KPIs: 2 colunas no mobile */
+  .krow{grid-template-columns:repeat(2,1fr);gap:8px}
+  .krow2{grid-template-columns:repeat(2,1fr);gap:6px;margin-top:-4px}
+  .kpi{padding:10px 12px;border-radius:8px}
+  .kpi2{padding:5px 10px;border-radius:6px}
+  .klab{font-size:9px;margin-bottom:4px}
+  .klab2{font-size:8px}
+  .kval{font-size:17px}
+  .kval2{font-size:12px}
+  .ksub{font-size:9px}
+
+  /* Painéis: coluna única */
+  .two{grid-template-columns:1fr}
+
+  /* Gráficos: altura reduzida */
+  #cM,#cA,#cFD{height:180px!important}
+  div[style*="height:240px"]{height:180px!important}
+  div[style*="height:220px"]{height:180px!important}
+  div[style*="height:190px"]{height:160px!important}
+
+  /* Tabela: scroll horizontal */
+  table{font-size:10px;min-width:600px}
+  th{padding:5px 6px;font-size:8px}
+  td{padding:5px 6px}
+
+  /* Desvio: altura menor */
+  #dw{min-height:200px!important}
+
+  /* Legenda menor */
+  .leg{font-size:10px;gap:10px;flex-wrap:wrap}
+  .ptit{font-size:9px;margin-bottom:8px}
+
+  /* Famílias */
+  .fn{width:70px;font-size:9px}
+  .fp{font-size:9px;width:35px}
+}
+
+@media (max-width: 420px) {
+  .krow{grid-template-columns:repeat(2,1fr)}
+  .kval{font-size:15px}
+  header img{height:28px!important}
+  .badge{display:none}
+}
+</style>`;
 }
 
 function parseCSV(text) {
@@ -524,3 +632,4 @@ loadAndRender();
 </script>
 </body>
 </html>
+
