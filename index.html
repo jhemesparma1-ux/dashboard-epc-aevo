@@ -127,6 +127,41 @@ td:first-child{font-family:'Syne',sans-serif}
   <span class="slab">Obra</span>
   <button class="obtn on" onclick="selObra('planura',this)">UFV Planura IV</button>
   <button class="obtn" onclick="selObra('bom',this)">UFV Bom Despacho</button>
+  <div style="margin-left:auto">
+    <button onclick="abrirImport()" style="background:transparent;border:0.5px solid var(--accent);border-radius:5px;padding:5px 14px;font-family:'Syne',sans-serif;font-size:12px;color:var(--accent);cursor:pointer;display:flex;align-items:center;gap:6px">
+      <span style="font-size:14px">⬆</span> Importar dados
+    </button>
+  </div>
+</div>
+
+<!-- Modal de importação -->
+<div id="importModal" style="display:none;position:fixed;inset:0;background:#000000aa;z-index:1000;align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:28px;width:90%;max-width:600px;display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:15px;font-weight:700;color:var(--text)">Importar dados do Excel</span>
+      <button onclick="fecharImport()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.6">
+      <b style="color:var(--accent)">Como fazer:</b><br>
+      1. Abra o Excel → aba <b id="importAbaLabel">P&R - TABELA</b><br>
+      2. Selecione tudo: <b>Ctrl+A</b><br>
+      3. Copie: <b>Ctrl+C</b><br>
+      4. Cole abaixo: <b>Ctrl+V</b>
+    </div>
+    <div>
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Obra destino</label>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button id="importBtnP" onclick="setImportObra('planura')" style="background:var(--accent);border:none;border-radius:5px;padding:5px 14px;font-size:12px;font-family:'Syne',sans-serif;color:#000;font-weight:700;cursor:pointer">UFV Planura IV</button>
+        <button id="importBtnB" onclick="setImportObra('bom')" style="background:transparent;border:0.5px solid var(--border2);border-radius:5px;padding:5px 14px;font-size:12px;font-family:'Syne',sans-serif;color:var(--muted);cursor:pointer">UFV Bom Despacho</button>
+      </div>
+    </div>
+    <textarea id="importTA" placeholder="Cole os dados aqui (Ctrl+V)..." style="width:100%;height:140px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:10px;resize:none;box-sizing:border-box"></textarea>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="fecharImport()" style="background:transparent;border:0.5px solid var(--border2);border-radius:6px;padding:8px 18px;color:var(--muted);font-family:'Syne',sans-serif;font-size:13px;cursor:pointer">Cancelar</button>
+      <button onclick="processarImport()" style="background:var(--accent);border:none;border-radius:6px;padding:8px 20px;color:#000;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer">Importar</button>
+    </div>
+    <div id="importStatus" style="font-size:12px;text-align:center;min-height:16px"></div>
+  </div>
 </div>
 <main id="main">
   <div class="krow">
@@ -417,6 +452,88 @@ function csvToCifras(rows) {
     });
   }
   return cifras;
+}
+
+let importObra = 'planura';
+
+function abrirImport() {
+  importObra = cObra;
+  setImportObra(cObra);
+  document.getElementById('importModal').style.display = 'flex';
+  document.getElementById('importTA').value = '';
+  document.getElementById('importStatus').textContent = '';
+}
+
+function fecharImport() {
+  document.getElementById('importModal').style.display = 'none';
+}
+
+function setImportObra(o) {
+  importObra = o;
+  const labels = {planura:'P&R - TABELA', bom:'PXR_ABC '};
+  document.getElementById('importAbaLabel').textContent = labels[o] || 'P&R - TABELA';
+  document.getElementById('importBtnP').style.background = o==='planura' ? 'var(--accent)' : 'transparent';
+  document.getElementById('importBtnP').style.color = o==='planura' ? '#000' : 'var(--muted)';
+  document.getElementById('importBtnP').style.border = o==='planura' ? 'none' : '0.5px solid var(--border2)';
+  document.getElementById('importBtnB').style.background = o==='bom' ? 'var(--accent)' : 'transparent';
+  document.getElementById('importBtnB').style.color = o==='bom' ? '#000' : 'var(--muted)';
+  document.getElementById('importBtnB').style.border = o==='bom' ? 'none' : '0.5px solid var(--border2)';
+}
+
+function processarImport() {
+  const raw = document.getElementById('importTA').value.trim();
+  if (!raw) {
+    document.getElementById('importStatus').textContent = '⚠ Cole os dados antes de importar.';
+    document.getElementById('importStatus').style.color = 'var(--red)';
+    return;
+  }
+
+  // Parsear TSV (Excel copia como tab-separated)
+  const rows = raw.split("\n").map(l => l.split("\t"));
+  if (rows.length < 2) {
+    document.getElementById('importStatus').textContent = '⚠ Dados inválidos. Certifique que copiou da aba correta.';
+    document.getElementById('importStatus').style.color = 'var(--red)';
+    return;
+  }
+
+  // Converter para CSV e parsear cifras
+  const cifras = csvToCifras(rows);
+  if (!cifras.length) {
+    document.getElementById('importStatus').textContent = '⚠ Nenhuma cifra encontrada. Verifique a aba selecionada.';
+    document.getElementById('importStatus').style.color = 'var(--red)';
+    return;
+  }
+
+  // Recalcular totais
+  const t = {
+    orc:       cifras.reduce((s,c)=>s+c.orcado,0),
+    real:      cifras.reduce((s,c)=>s+c.real_total,0),
+    saldo:     cifras.reduce((s,c)=>s+c.saldo,0),
+    prov:      cifras.reduce((s,c)=>s+(c.prov_tot||0),0),
+    proj:      cifras.reduce((s,c)=>s+c.projetado,0),
+    saldoProj: cifras.reduce((s,c)=>s+(c.saldo_proj||0),0)
+  };
+
+  // Atualizar dados da obra
+  OBRAS[importObra].cifras = cifras;
+  OBRAS[importObra].totais = t;
+
+  // Enviar para Sheets em background
+  const url = OBRAS[importObra].url;
+  if (url) {
+    fetch(url.replace('/api/proxy?obra=', '/api/proxy?obra=') + '&_import=1', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({obra: importObra, rows: rows})
+    }).catch(()=>{});
+  }
+
+  // Se for a obra atual, renderizar
+  if (importObra === cObra) render(cifras, t);
+
+  document.getElementById('importStatus').textContent = `✓ ${cifras.length} cifras importadas com sucesso!`;
+  document.getElementById('importStatus').style.color = 'var(--green)';
+  setTimeout(() => fecharImport(), 1500);
 }
 
 async function selObra(o, btn) {
