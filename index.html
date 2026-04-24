@@ -168,6 +168,11 @@ td:first-child{font-family:'Syne',sans-serif}
     <div id="importStatus" style="font-size:12px;text-align:center;min-height:16px"></div>
   </div>
 </div>
+<div id="importBanner" style="display:none;background:#1a2a1a;border-bottom:1px solid #2ec4a040;padding:6px 32px;font-size:11px;color:#2ec4a0;display:none;align-items:center;gap:12px">
+  <span>✓ Exibindo dados importados</span>
+  <span id="importBannerRef" style="color:var(--muted)"></span>
+  <button onclick="limparTodosOsDados()" style="margin-left:auto;background:transparent;border:0.5px solid #f8717140;border-radius:4px;padding:2px 10px;color:#f87171;font-size:10px;cursor:pointer;font-family:'Syne',sans-serif">🗑 Limpar e usar padrão</button>
+</div>
 <main id="main">
   <div class="krow">
     <div class="kpi"><div class="klab">Orçado total</div><div class="kval" id="k0">—</div><div class="ksub">referência contratual</div></div>
@@ -277,7 +282,7 @@ const MS_BOM=['OUT','NOV','DEZ','JAN','FEV','MAR','ABR','MAI','JUN'];
 const fmt=v=>'R$\u00a0'+Math.round(v).toLocaleString('pt-BR');
 const fK=v=>{const a=Math.abs(v);return(v<0?'-':'')+(a>=1e6?(a/1e6).toFixed(1)+'M':a>=1000?(a/1000).toFixed(0)+'k':Math.round(a)+'');};
 const pct=(a,b)=>b?((a/b)*100).toFixed(1)+'%':'—';
-const n=v=>{const x=parseFloat(String(v).replace(',','.'));return isNaN(x)?0:x;};
+const n=v=>{if(typeof v==='number') return v; const s=String(v||'').trim().replace(/\./g,'').replace(',','.'); const x=parseFloat(s); return isNaN(x)?0:x;};
 
 
 // Plugin inline para labels nos pontos das curvas
@@ -484,6 +489,17 @@ function setImportObra(o) {
   document.getElementById('importBtnB').style.border     = o==='bom' ? 'none' : '0.5px solid var(--border2)';
 }
 
+function limparTodosOsDados() {
+  ['planura','bom'].forEach(o => {
+    try {
+      localStorage.removeItem('aevo_cifras_' + o);
+      localStorage.removeItem('aevo_totais_' + o);
+      localStorage.removeItem('aevo_ref_'    + o);
+    } catch(e) {}
+  });
+  location.reload();
+}
+
 function limparDados() {
   try {
     localStorage.removeItem('aevo_cifras_' + importObra);
@@ -540,7 +556,7 @@ function processarXlsx(file) {
       }
 
       // Converter para array de arrays (como TSV)
-      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
 
       const cifras = csvToCifras(rows);
       if (!cifras.length) {
@@ -554,7 +570,7 @@ function processarXlsx(file) {
       let totais = calcTotais(cifras); // fallback: calcular das cifras
       const wsRel = wb.Sheets['P&R - RELATÓRIO'];
       if (wsRel) {
-        const relRows = XLSX.utils.sheet_to_json(wsRel, { header: 1, defval: '', raw: false });
+        const relRows = XLSX.utils.sheet_to_json(wsRel, { header: 1, defval: '', raw: true });
         for (const row of relRows) {
           if ((row[1]||'').toString().trim() === 'Total Geral') {
             totais = {
@@ -628,17 +644,35 @@ async function loadAndRender() {
     if (savedCifras && savedTotais) {
       const cifras = JSON.parse(savedCifras);
       const totais = JSON.parse(savedTotais);
-      if (cifras.length > 0) {
+      // Validar: totais devem ter valores acima de 1000 (qualquer obra tem >R$1k)
+      const validos = cifras.length > 0 && totais.orc > 1000;
+      if (validos) {
         obra.cifras = cifras;
         obra.totais = totais;
-        // Mostrar badge de data da última importação
         if (savedRef) {
           const badge = document.getElementById('obraLabel');
-          if (badge) badge.title = 'Dados importados em ' + savedRef;
+          if (badge) badge.title = 'Importado em ' + savedRef;
+          // Mostrar banner
+          const banner = document.getElementById('importBanner');
+          const bannerRef = document.getElementById('importBannerRef');
+          if (banner) { banner.style.display = 'flex'; }
+          if (bannerRef) bannerRef.textContent = 'Última importação: ' + savedRef;
         }
+      } else {
+        // Dados corrompidos — limpar e usar hardcoded
+        localStorage.removeItem('aevo_cifras_' + cObra);
+        localStorage.removeItem('aevo_totais_' + cObra);
+        localStorage.removeItem('aevo_ref_'    + cObra);
       }
     }
-  } catch(e) {}
+  } catch(e) {
+    // JSON inválido — limpar localStorage
+    try {
+      localStorage.removeItem('aevo_cifras_' + cObra);
+      localStorage.removeItem('aevo_totais_' + cObra);
+      localStorage.removeItem('aevo_ref_'    + cObra);
+    } catch(e2) {}
+  }
 
   // Renderizar com dados (hardcoded ou importados do localStorage)
   if(obra.cifras && obra.cifras.length) {
