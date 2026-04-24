@@ -1622,22 +1622,27 @@ function Hero({ obra, totals, cifras }) {
   const aditivo      = o.aditivo;
   const saldoProj    = totals.saldoProj;
   const saldoLiquido = saldoProj + contingencia + aditivo;
+  const teto         = orc + contingencia + aditivo;
 
-  // Teto = orçado + contingência + aditivo
-  const teto = orc + contingencia + aditivo;
-  const pctOf = v => Math.max(0, Math.min((v / teto) * 100, 100));
+  const pctOf  = v => Math.max(0, Math.min((v / teto) * 100, 100));
+  const isBad  = saldoLiquido < 0;
+  const projEstoura = projetado > teto;
+  const consumoPct  = projetado / teto * 100;
 
-  const isBad      = saldoLiquido < 0;
-  const consumoPct = projetado / teto * 100;
+  // Larguras fixas dos 3 blocos
+  const wOrc  = (orc  / teto) * 100;
+  const wCont = (contingencia / teto) * 100;
+  const wAdit = aditivo > 0 ? (aditivo / teto) * 100 : 0;
 
-  // Larguras dos 3 blocos fixos
-  const wOrc  = pctOf(orc);
-  const wCont = pctOf(contingencia);
-  const wAdit = aditivo > 0 ? pctOf(aditivo) : 0;
+  // Posição do realizado dentro do bloco Orçado (% relativo ao bloco)
+  const realPctOfOrc  = Math.min((realizado / orc) * 100, 100);
+  // Posição do projetado dentro do bloco Orçado (% relativo ao bloco), capped
+  const projPctOfOrc  = Math.min((projetado / orc) * 100, 100);
 
-  // Posição dos marcadores dentro da barra
+  // Posição absoluta das linhas marcadoras na barra total
   const posReal = pctOf(realizado);
-  const posProj = pctOf(projetado);
+  const posProj = pctOf(projetado); // já limitado a 100%
+  const projOver = projetado > teto; // estoura o teto total
 
   return (
     <div className="hero">
@@ -1662,124 +1667,120 @@ function Hero({ obra, totals, cifras }) {
       </div>
 
       <div className="budget-stack">
-        <div style={{ fontSize:11, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>
+        <div style={{ fontSize:11, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:6 }}>
           Decomposição do teto contratual — {fmtBRLk(teto)}
         </div>
 
-        {/* Barra: 3 blocos fixos = Orçado | Contingência | Aditivo */}
-        <div className="stack-bar" style={{ position:'relative' }}>
+        {/* Barra: overflow:visible para mostrar marcador de projetado estourando */}
+        <div className="stack-bar" style={{ position:'relative', overflow:'visible' }}>
 
-          {/* Bloco Orçado */}
-          <div style={{
-            width: `${wOrc}%`, height:'100%', background:'var(--bg-panel-2)',
-            borderRight:'1px solid var(--border-strong)',
-            display:'flex', alignItems:'center', justifyContent:'center',
-            fontSize:10, color:'var(--text-dim)', fontFamily:'var(--font-mono)',
-            position:'relative', overflow:'hidden'
-          }}>
-            {/* Preenchimento realizado dentro do orçado */}
-            <div style={{
-              position:'absolute', left:0, top:0, bottom:0,
-              width:`${Math.min(pctOf(realizado)/wOrc*100,100)}%`,
-              background:'var(--good)', opacity:0.85
-            }}/>
-            {/* Preenchimento projetado (acima do realizado) */}
+          {/* ── Bloco ORÇADO ── */}
+          <div style={{ width:`${wOrc}%`, height:'100%', position:'relative',
+            background:'var(--bg-panel-2)', borderRight:'1px solid var(--border-strong)',
+            overflow:'hidden', borderRadius:'6px 0 0 6px' }}>
+            {/* Fill realizado */}
+            <div style={{ position:'absolute', left:0, top:0, bottom:0,
+              width:`${realPctOfOrc}%`, background:'var(--good)', opacity:0.9 }}/>
+            {/* Fill projetado acima do realizado (dentro do orçado) */}
             {projetado > realizado && projetado <= orc && (
-              <div style={{
-                position:'absolute', left:`${pctOf(realizado)/wOrc*100}%`, top:0, bottom:0,
-                width:`${Math.min((pctOf(projetado-realizado))/wOrc*100,100)}%`,
-                background:'rgba(255,107,107,0.45)'
-              }}/>
+              <div style={{ position:'absolute', left:`${realPctOfOrc}%`, top:0, bottom:0,
+                width:`${projPctOfOrc - realPctOfOrc}%`, background:'rgba(255,107,107,0.35)' }}/>
             )}
-            <span style={{ position:'relative', zIndex:1, fontWeight:600 }}>
+            <span style={{ position:'relative', zIndex:1, fontSize:10,
+              fontFamily:'var(--font-mono)', fontWeight:700, color:'rgba(10,20,32,0.85)',
+              padding:'0 12px', whiteSpace:'nowrap' }}>
               Orçado {fmtBRLk(orc)}
             </span>
           </div>
 
-          {/* Bloco Contingência */}
-          <div style={{
-            width:`${wCont}%`, height:'100%',
-            background: projetado > orc ? 'rgba(255,107,107,0.35)' : 'rgba(240,208,32,0.25)',
-            borderRight: aditivo > 0 ? '1px solid var(--border-strong)' : 'none',
-            display:'flex', alignItems:'center', justifyContent:'center',
-            fontSize:10, color:'var(--text-dim)', fontFamily:'var(--font-mono)', fontWeight:600,
-            position:'relative', overflow:'hidden'
-          }}>
-            {/* Se projetado estoura o orçado, preenche cont */}
-            {projetado > orc && (
-              <div style={{
-                position:'absolute', left:0, top:0, bottom:0,
-                width:`${Math.min(pctOf(projetado-orc)/wCont*100,100)}%`,
-                background:'rgba(255,107,107,0.6)'
-              }}/>
+          {/* ── Bloco CONTINGÊNCIA ── */}
+          <div style={{ width:`${wCont}%`, height:'100%', position:'relative', overflow:'hidden',
+            background: projetado > orc ? 'rgba(255,107,107,0.4)' : 'rgba(240,208,32,0.2)',
+            borderRight: aditivo > 0 ? '1px solid var(--border-strong)' : 'none' }}>
+            {projetado > orc && projetado <= teto && (
+              <div style={{ position:'absolute', left:0, top:0, bottom:0,
+                width:`${Math.min(((projetado-orc)/contingencia)*100,100)}%`,
+                background:'rgba(255,107,107,0.55)' }}/>
             )}
-            <span style={{ position:'relative', zIndex:1 }}>cont. {fmtBRLk(contingencia)}</span>
           </div>
 
-          {/* Bloco Aditivo */}
+          {/* ── Bloco ADITIVO ── */}
           {wAdit > 0 && (
-            <div style={{
-              width:`${wAdit}%`, height:'100%',
-              background:'rgba(26,143,166,0.25)',
-              display:'flex', alignItems:'center', justifyContent:'center',
-              fontSize:10, color:'var(--text-dim)', fontFamily:'var(--font-mono)', fontWeight:600,
-              position:'relative', overflow:'hidden'
-            }}>
-              <span style={{ position:'relative', zIndex:1 }}>adit. {fmtBRLk(aditivo)}</span>
+            <div style={{ width:`${wAdit}%`, height:'100%', position:'relative', overflow:'hidden',
+              background:'rgba(26,143,166,0.2)', borderRadius:'0 6px 6px 0' }}>
+              {projetado > orc + contingencia && (
+                <div style={{ position:'absolute', left:0, top:0, bottom:0,
+                  width:`${Math.min(((projetado-orc-contingencia)/aditivo)*100,100)}%`,
+                  background:'rgba(255,107,107,0.55)' }}/>
+              )}
             </div>
           )}
 
-          {/* Linha marcadora: Realizado */}
-          <div style={{
-            position:'absolute', left:`${posReal}%`, top:0, bottom:0, width:2,
-            background:'var(--good)', zIndex:10
-          }} title={`Realizado: ${fmtBRLk(realizado)}`}/>
+          {/* ── Linha marcadora: Realizado ── */}
+          <div style={{ position:'absolute', left:`${posReal}%`, top:-4, bottom:-4,
+            width:2, background:'var(--good)', zIndex:10,
+            boxShadow:'0 0 8px rgba(62,200,160,0.8)' }}/>
 
-          {/* Linha marcadora: Projetado */}
-          <div style={{
-            position:'absolute', left:`${posProj}%`, top:0, bottom:0, width:2,
-            background:'var(--bad)', zIndex:10,
-            boxShadow:'0 0 6px rgba(255,107,107,0.6)'
-          }} title={`Projetado: ${fmtBRLk(projetado)}`}/>
+          {/* ── Linha marcadora: Projetado ── */}
+          <div style={{ position:'absolute', left:`${posProj}%`, top:-4, bottom:-4,
+            width:2, zIndex:10,
+            background: projOver ? 'var(--bad)' : 'var(--bad)',
+            boxShadow:'0 0 8px rgba(255,107,107,0.8)',
+            // Se estoura, mostrar seta na borda direita
+          }}/>
+          {projOver && (
+            <div style={{ position:'absolute', right:-2, top:'50%', transform:'translateY(-50%)',
+              fontSize:14, color:'var(--bad)', zIndex:11, lineHeight:1 }}>▶</div>
+          )}
         </div>
 
-        {/* Labels das linhas — clamp nas bordas, separar se próximos */}
-        <div style={{ position:'relative', height:28, marginTop:2, fontSize:9, fontFamily:'var(--font-mono)', color:'var(--text-muted)' }}>
-          {/* Label Realizado */}
-          <span style={{
-            position:'absolute',
-            left: `clamp(2%, ${posReal}%, 96%)`,
+        {/* ── Labels das linhas ── */}
+        <div style={{ position:'relative', height:30, marginTop:3,
+          fontSize:9, fontFamily:'var(--font-mono)' }}>
+          {/* Label Realizado — nunca passa de 90% para não bater no proj */}
+          <span style={{ position:'absolute',
+            left:`clamp(2%, ${posReal}%, ${Math.min(posReal+2, 88)}%)`,
             transform:'translateX(-50%)',
-            color:'var(--good)', fontWeight:700,
-            whiteSpace:'nowrap', top:0
-          }}>
+            color:'var(--good)', fontWeight:700, whiteSpace:'nowrap', top:0 }}>
             ▲ real. {fmtBRLk(realizado)}
           </span>
-          {/* Label Projetado — sobe se muito próximo do realizado */}
-          <span style={{
-            position:'absolute',
-            left: `clamp(2%, ${posProj}%, 97%)`,
-            transform:'translateX(-50%)',
-            color:'var(--bad)', fontWeight:700,
-            whiteSpace:'nowrap',
-            top: Math.abs(posProj - posReal) < 12 ? 14 : 0
-          }}>
-            ▲ proj. {fmtBRLk(projetado)}
+          {/* Label Projetado — se estoura o teto, ancora na direita */}
+          <span style={{ position:'absolute',
+            left: projOver ? 'auto' : `clamp(10%, ${posProj}%, 98%)`,
+            right: projOver ? 0 : 'auto',
+            transform: projOver ? 'none' : 'translateX(-50%)',
+            color:'var(--bad)', fontWeight:700, whiteSpace:'nowrap',
+            top: Math.abs(posProj - posReal) < 14 && !projOver ? 16 : 0 }}>
+            {projOver ? '▶ ' : '▲ '}proj. {fmtBRLk(projetado)}
           </span>
         </div>
 
-        <div className="stack-legend" style={{ marginTop:8 }}>
-          <span className="li"><span className="sw" style={{ background:'var(--good)' }}/>Realizado <b style={{ color:'var(--text)', marginLeft:4 }}>{fmtBRLk(realizado)}</b></span>
-          <span className="li"><span className="sw" style={{ background:'rgba(255,107,107,0.7)' }}/>Projetado <b style={{ color:'var(--text)', marginLeft:4 }}>{fmtBRLk(projetado)}</b></span>
-          <span className="li"><span className="sw" style={{ background:'rgba(240,208,32,0.5)' }}/>Contingência <b style={{ color:'var(--text)', marginLeft:4 }}>{fmtBRLk(contingencia)}</b></span>
-          {aditivo > 0 && <span className="li"><span className="sw" style={{ background:'rgba(26,143,166,0.5)' }}/>Aditivo <b style={{ color:'var(--text)', marginLeft:4 }}>{fmtBRLk(aditivo)}</b></span>}
+        {/* ── Legenda ── */}
+        <div className="stack-legend" style={{ marginTop:4 }}>
+          <span className="li"><span className="sw" style={{ background:'var(--good)' }}/>
+            Realizado <b style={{ color:'var(--text)', marginLeft:4 }}>{fmtBRLk(realizado)}</b></span>
+          <span className="li"><span className="sw" style={{ background:'rgba(255,107,107,0.8)' }}/>
+            Projetado <b style={{ color:'var(--text)', marginLeft:4 }}>{fmtBRLk(projetado)}</b></span>
+          <span className="li"><span className="sw" style={{ background:'rgba(240,208,32,0.6)' }}/>
+            Contingência <b style={{ color:'var(--text)', marginLeft:4 }}>{fmtBRLk(contingencia)}</b></span>
+          {aditivo > 0 && <span className="li"><span className="sw" style={{ background:'rgba(26,143,166,0.6)' }}/>
+            Aditivo <b style={{ color:'var(--text)', marginLeft:4 }}>{fmtBRLk(aditivo)}</b></span>}
+        </div>
+
+        {/* ── Legenda dos blocos (embaixo da barra) ── */}
+        <div style={{ display:'flex', fontSize:9, fontFamily:'var(--font-mono)',
+          color:'var(--text-muted)', marginTop:2, gap:0 }}>
+          <span style={{ width:`${wOrc}%`, textAlign:'center', overflow:'hidden',
+            whiteSpace:'nowrap', paddingLeft:4 }}>orçado {fmtBRLk(orc)}</span>
+          <span style={{ width:`${wCont}%`, textAlign:'center', overflow:'hidden',
+            whiteSpace:'nowrap', fontSize:8 }}>cont.</span>
+          {wAdit > 0 && <span style={{ width:`${wAdit}%`, textAlign:'center',
+            overflow:'hidden', whiteSpace:'nowrap', fontSize:8 }}>adit.</span>}
         </div>
       </div>
     </div>
   );
 }
-
-// --- KPI strip ---
 function KpiStrip({ obra, totals, cifras, monthlyData }) {
   const o = OBRAS[obra];
   const orc = totals.orc;
@@ -2353,7 +2354,7 @@ function App() {
                   <span className="li"><span className="sw" style={{background:'rgba(255,255,255,0.3)'}}/>Total</span>
                 </div>
               </div>
-              <div className="chart-wrap"><ChartMonthly cifras={cifras} meses={o.meses}/></div>
+              <div className="chart-wrap" style={{height:260}}><ChartMonthly cifras={cifras} meses={o.meses}/></div>
             </div>
             <AlertsPanel cifras={cifras} onClickCifra={scrollToCifra}/>
           </div>
