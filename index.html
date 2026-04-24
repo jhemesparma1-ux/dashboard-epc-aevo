@@ -253,13 +253,13 @@ const TOTAIS_BOM={orc:5535137.65,real:4130627.38,saldo:1404510.27,prov:1961879.5
 const OBRAS={
   planura:{
     nome:'UFV Planura IV',
-    url:'/api/proxy?obra=planura',
+    url:null,
     cifras:CIFRAS_PLANURA,
     totais:TOTAIS_PLANURA
   },
   bom:{
     nome:'UFV Bom Despacho',
-    url:'/api/proxy?obra=bom',
+    url:null,
     cifras:CIFRAS_BOM,
     totais:TOTAIS_BOM
   }
@@ -557,43 +557,8 @@ async function loadAndRender() {
     return;
   }
 
-  // Tentar atualizar do Sheets em background (silencioso)
-  if(!obra.url) return;
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10000);
-    const resp = await fetch(obra.url, { signal: controller.signal });
-    clearTimeout(timer);
-    if(!resp.ok) return;
-    const text = await resp.text();
-    let csv;
-    try { const j = JSON.parse(text); csv = j.csv || j.data || text; } catch(e) { csv = text; }
-    if(!csv || csv.trim().length < 10) return;
-    const rows = parseCSV(csv);
-    const cifras = csvToCifras(rows);
-    if(!cifras.length) return;
-    // Só atualiza se retornar dados completos (evita sobrescrever com dados ruins)
-    if(cifras.length < (obra.cifras||[]).length * 0.8) return;
-    // Validar que os dados têm valores reais (evita sobrescrever com colunas zeradas)
-    const sumReal = cifras.reduce((s,c) => s + (c.real_total||0) + (c.real_fd||0) + (c.real_aevo||0), 0);
-    const sumHard = (obra.cifras||[]).reduce((s,c) => s + (c.real_total||0) + (c.real_fd||0) + (c.real_aevo||0), 0);
-    if(sumHard > 0 && sumReal < sumHard * 0.1) return; // dados do Sheets parecem zerados
-    // Atualizar com dados frescos do Sheets
-    obra.cifras = cifras;
-    // Recalcular totais a partir das cifras do Sheets
-    const t = {
-      orc:       cifras.reduce((s,c)=>s+c.orcado,0),
-      real:      cifras.reduce((s,c)=>s+c.real_total,0),
-      saldo:     cifras.reduce((s,c)=>s+c.saldo,0),
-      prov:      cifras.reduce((s,c)=>s+(c.prov_tot||0),0),
-      proj:      cifras.reduce((s,c)=>s+c.projetado,0),
-      saldoProj: cifras.reduce((s,c)=>s+(c.saldo_proj||0),0)
-    };
-    obra.totais = t;
-    if(document.getElementById('k0')) render(cifras, t);
-  } catch(e) {
-    // silencioso — fallback já renderizado
-  }
+  // Dados hardcoded são a fonte de verdade — fetch do Sheets desabilitado
+  // (atualizar os dados diretamente no arquivo via nova planilha)
 }
 
 function render(cifras, totais) {
