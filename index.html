@@ -2,7 +2,9 @@
 <html lang="pt-BR" data-density="normal" data-accent="yellow" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a1420">
+<meta name="mobile-web-app-capable" content="yes">
 <title>AEVO Energia · Dashboard P&R EPC</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -566,14 +568,93 @@ tr.expanded .caret-ex { transform: rotate(90deg); color: var(--brand-yellow); }
   .grid-2 { grid-template-columns: 1fr; }
   .grid-3-2 { grid-template-columns: 1fr; }
 }
-@media (max-width: 720px) {
-  .main { padding: 12px; }
-  .app-header { padding: 12px 16px; }
-  .kpi-strip { grid-template-columns: 1fr 1fr; }
-  .hero-value { font-size: 36px; }
-  .cifras-table { font-size: 10px; }
-  .cifras-table td { padding: 6px 4px; }
+
+/* ── TABLET ── */
+@media (max-width: 900px) {
+  .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+  .grid-3-2 { grid-template-columns: 1fr; }
+  .grid-2   { grid-template-columns: 1fr; }
+  .hero { grid-template-columns: 1fr; }
+  .cifras-table { font-size: 11px; }
 }
+
+/* ── MOBILE ── */
+@media (max-width: 640px) {
+  /* Layout geral */
+  .main { padding: 10px; gap: 10px; }
+
+  /* Header */
+  .app-header { padding: 10px 12px; }
+  .brand-text .name { font-size: 13px; }
+  .brand-text .sub  { display: none; }
+  .brand-logo { width: 36px; height: 36px; }
+  .header-ref { display: none; }
+  .obra-meta  { display: none; }
+  .obra-switch { padding: 5px 8px 5px 10px; }
+  .obra-name { font-size: 13px; }
+
+  /* Hero */
+  .hero { grid-template-columns: 1fr; padding: 14px; gap: 14px; }
+  .hero-eyebrow { font-size: 9px; }
+  .hero-title { font-size: 11px; }
+  .hero-value { font-size: 32px; }
+  .hero-sub { font-size: 10px; flex-wrap: wrap; gap: 4px; }
+  .budget-stack { gap: 8px; }
+  .stack-bar { height: 28px; }
+  .stack-seg { font-size: 9px; padding: 0 6px; }
+  .stack-legend { font-size: 9px; gap: 8px; flex-wrap: wrap; }
+  .sw { width: 8px; height: 8px; }
+
+  /* KPI strip — 2 colunas */
+  .kpi-strip { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .kpi { padding: 10px 12px; border-radius: 8px; }
+  .k-label { font-size: 9px; }
+  .k-val { font-size: 18px; }
+  .k-sub { font-size: 9px; }
+
+  /* Painéis */
+  .panel { padding: 12px; border-radius: 10px; }
+  .panel-head { margin-bottom: 10px; flex-wrap: wrap; gap: 6px; }
+  .panel-title { font-size: 10px; }
+  .panel-meta { font-size: 9px; }
+  .legend { font-size: 9px; gap: 8px; }
+
+  /* Grids — coluna única */
+  .grid-2   { grid-template-columns: 1fr; }
+  .grid-3-2 { grid-template-columns: 1fr; }
+
+  /* Tabela — scroll horizontal */
+  .table-wrap { margin: 0 -12px; padding: 0 12px; }
+  .cifras-table { font-size: 10px; min-width: 560px; }
+  .cifras-table th { padding: 6px 6px; font-size: 8px; }
+  .cifras-table td { padding: 6px 6px; }
+  .cifras-table td:first-child { max-width: 160px; }
+
+  /* Filtros */
+  .table-controls { flex-wrap: wrap; gap: 8px; }
+  .filter-chips { flex-wrap: wrap; gap: 4px; }
+  .chip { font-size: 10px; padding: 3px 8px; }
+  .search-box input { font-size: 11px; }
+
+  /* Tweaks panel — esconder em mobile */
+  .twk-panel { display: none; }
+
+  /* Obra menu */
+  .obra-menu { min-width: 200px; }
+  .obra-menu-item { padding: 10px 12px; }
+
+  /* Scrollbars menores */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+}
+
+/* ── MOBILE PEQUENO (≤380px) ── */
+@media (max-width: 380px) {
+  .kpi-strip { grid-template-columns: 1fr 1fr; }
+  .k-val { font-size: 16px; }
+  .hero-value { font-size: 26px; }
+  .kpi-strip .kpi:last-child { grid-column: 1 / -1; }
+}
+
 
 /* Scrollbars */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -586,7 +667,9 @@ tr.expanded .caret-ex { transform: rotate(90deg); color: var(--brand-yellow); }
   overflow-x: auto;
   margin: 0 -20px;
   padding: 0 20px;
+  -webkit-overflow-scrolling: touch;
 }
+.table-wrap::-webkit-scrollbar { height: 4px; }
 
 /* Accent-color override */
 [data-accent="teal"] { --brand-yellow: #1a8fa6; }
@@ -1446,7 +1529,7 @@ function Header({ obra, onObraChange, onImport, refDate }) {
       <div className="header-tools">
         <div className="header-ref">Ref. {refDate}</div>
         <button className="btn" onClick={onImport}>
-          <Icon name="upload" /> Importar
+          <Icon name="upload" /><span className="btn-import-text"> Importar</span>
         </button>
       </div>
     </header>
