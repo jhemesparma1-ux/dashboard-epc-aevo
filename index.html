@@ -466,8 +466,8 @@ function abrirImport() {
   importObra = cObra;
   setImportObra(cObra);
   document.getElementById('importModal').style.display = 'flex';
-  document.getElementById('importTA').value = '';
   document.getElementById('importStatus').textContent = '';
+  document.getElementById('dropFileName').textContent = '';
 }
 
 function fecharImport() {
@@ -476,14 +476,12 @@ function fecharImport() {
 
 function setImportObra(o) {
   importObra = o;
-  const labels = {planura:'P&R - TABELA', bom:'PXR_ABC '};
-  document.getElementById('importAbaLabel').textContent = labels[o] || 'P&R - TABELA';
   document.getElementById('importBtnP').style.background = o==='planura' ? 'var(--accent)' : 'transparent';
-  document.getElementById('importBtnP').style.color = o==='planura' ? '#000' : 'var(--muted)';
-  document.getElementById('importBtnP').style.border = o==='planura' ? 'none' : '0.5px solid var(--border2)';
+  document.getElementById('importBtnP').style.color      = o==='planura' ? '#000' : 'var(--muted)';
+  document.getElementById('importBtnP').style.border     = o==='planura' ? 'none' : '0.5px solid var(--border2)';
   document.getElementById('importBtnB').style.background = o==='bom' ? 'var(--accent)' : 'transparent';
-  document.getElementById('importBtnB').style.color = o==='bom' ? '#000' : 'var(--muted)';
-  document.getElementById('importBtnB').style.border = o==='bom' ? 'none' : '0.5px solid var(--border2)';
+  document.getElementById('importBtnB').style.color      = o==='bom' ? '#000' : 'var(--muted)';
+  document.getElementById('importBtnB').style.border     = o==='bom' ? 'none' : '0.5px solid var(--border2)';
 }
 
 function limparDados() {
