@@ -144,9 +144,9 @@ td:first-child{font-family:'Syne',sans-serif}
     <div style="font-size:12px;color:var(--muted);line-height:1.6">
       <b style="color:var(--accent)">Como fazer:</b><br>
       1. Abra o Excel → aba <b id="importAbaLabel">P&R - TABELA</b><br>
-      2. Selecione tudo: <b>Ctrl+A</b><br>
+      2. Clique em <b>A1</b> → <b>Ctrl+Shift+End</b> para selecionar toda a tabela<br>
       3. Copie: <b>Ctrl+C</b><br>
-      4. Cole abaixo: <b>Ctrl+V</b>
+      4. Cole abaixo e clique <b>Importar</b> — os dados ficam salvos no browser
     </div>
     <div>
       <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Obra destino</label>
@@ -157,6 +157,7 @@ td:first-child{font-family:'Syne',sans-serif}
     </div>
     <textarea id="importTA" placeholder="Cole os dados aqui (Ctrl+V)..." style="width:100%;height:140px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:10px;resize:none;box-sizing:border-box"></textarea>
     <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="limparDados()" style="background:transparent;border:0.5px solid var(--red);border-radius:6px;padding:8px 14px;color:var(--red);font-family:'Syne',sans-serif;font-size:12px;cursor:pointer" title="Remove dados importados e volta ao hardcoded">🗑 Limpar</button>
       <button onclick="fecharImport()" style="background:transparent;border:0.5px solid var(--border2);border-radius:6px;padding:8px 18px;color:var(--muted);font-family:'Syne',sans-serif;font-size:13px;cursor:pointer">Cancelar</button>
       <button onclick="processarImport()" style="background:var(--accent);border:none;border-radius:6px;padding:8px 20px;color:#000;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer">Importar</button>
     </div>
@@ -239,9 +240,9 @@ const C = {
   FD_NOV:8,  FD_DEZ:9,  FD_JAN:10, FD_FEV:11, FD_MAR:12, FD_ABR:13,
   AE_NOV:17, AE_DEZ:18, AE_JAN:19, AE_FEV:20, AE_MAR:21, AE_ABR:22,
   FD_TOT:16, AE_TOT:25,
-  REAL_TOTAL:35, SALDO:36,
-  PROJ_NOV:51, PROJ_DEZ:52, PROJ_JAN:53, PROJ_FEV:54, PROJ_MAR:55, PROJ_ABR:56,
-  PROJ_TOT:59, SALDO_PROJ:60, PROJETADO:50
+  REAL_TOTAL:27, SALDO:28,
+  PROJ_NOV:44, PROJ_DEZ:45, PROJ_JAN:46, PROJ_FEV:47, PROJ_MAR:48, PROJ_ABR:49,
+  PROJ_TOT:52, SALDO_PROJ:54, PROJETADO:43
 };
 
 // Totais oficiais do P&R RELATÓRIO (linha Total Geral)
@@ -382,32 +383,32 @@ function parseCSV(text) {
 
 function csvToCifras(rows) {
   if(!rows || rows.length < 2) return [];
-  
-  // Mapear cabeçalho dinamicamente
-  const hdr = rows[0].map(h => (h||'').trim().toUpperCase());
-  const idx = name => hdr.indexOf(name.toUpperCase());
-  
-  // Índices comuns
-  const iFAM  = idx('FAMÍLIA');
-  const iDESC = idx('DESCRIÇÃO');
-  const iORC  = idx('ORÇADO');
-  const iFD_T = idx('REAL FD - TOT');
-  const iAE_T = idx('REAL AEVO - TOT');
-  const iRPROV= idx('REAL - PROVISIONADO');
-  const iPROVT= idx('PROV - TOT');
-  const iREAL = idx('REAL - TOTAL') >= 0 ? idx('REAL - TOTAL') : (idx('REAL- TOTAL') >= 0 ? idx('REAL- TOTAL') : idx('REAL TOTAL'));
-  const iSALDO= idx('SALDO') >= 0 ? idx('SALDO') : (idx('REAL - SALDO') >= 0 ? idx('REAL - SALDO') : idx('REAL - SALDO '));
-  const iPROJ = idx('PROJ - TOT') >= 0 ? idx('PROJ - TOT') : (idx('PROJETADO R$') >= 0 ? idx('PROJETADO R$') : -1);
-  const iSP   = idx('SALDO PROJETADO $');
-  
-  // Meses disponíveis
+
+  // Normalizar cabeçalho: trim + uppercase + colapsar espaços múltiplos
+  const hdr = rows[0].map(h => (h||'').trim().toUpperCase().replace(/\s+/g,' '));
+  const col = name => hdr.indexOf(name.trim().toUpperCase().replace(/\s+/g,' '));
+
+  // Mapeamento exato dos cabeçalhos da aba P&R - TABELA
+  const iFAM   = col('FAMÍLIA');
+  const iDESC  = col('DESCRIÇÃO');
+  const iORC   = col('ORÇADO');
+  const iFD_T  = col('REAL FD - TOT');
+  const iAE_T  = col('REAL AEVO - TOT');
+  const iRPROV = col('REAL - PROVISIONADO');
+  const iPROVT = col('PROV - TOT');
+  const iREAL  = col('REAL - TOTAL');
+  const iSALDO = col('SALDO');
+  const iPROJ  = col('PROJETADO R$');
+  const iSP    = col('SALDO PROJETADO $');
+
+  // Meses — normaliza espaços duplos
   const MESES_ALL = ['OUT','NOV','DEZ','JAN','FEV','MAR','ABR','MAI','JUN'];
   const mesIdx = {};
   MESES_ALL.forEach(m => {
     mesIdx[m] = {
-      fd:   hdr.findIndex((h,i) => h === `REAL FD - ${m}`),
-      aevo: hdr.findIndex((h,i) => h === `REAL AEVO - ${m}`),
-      proj: hdr.findIndex((h,i) => h === `PROJ - ${m}` || h === `PROJ -  ${m}`)
+      fd:   hdr.indexOf('REAL FD - '+m),
+      aevo: hdr.indexOf('REAL AEVO - '+m),
+      proj: hdr.indexOf('PROJ - '+m)
     };
   });
 
@@ -418,19 +419,21 @@ function csvToCifras(rows) {
   for(let i=1; i<rows.length; i++){
     const r = rows[i];
     if(!r || r.length < 5) continue;
-    const fam  = (r[iFAM >= 0 ? iFAM : 1]||'').trim().toUpperCase();
-    const desc = (r[iDESC >= 0 ? iDESC : 2]||'').trim();
-    if(!desc || desc.toUpperCase().includes('TOTAL GERAL')) continue;
-    
+    const fam  = (r[iFAM >= 0 ? iFAM : 0]||'').trim().toUpperCase();
+    const desc = (r[iDESC >= 0 ? iDESC : 1]||'').trim();
+    if(!desc) continue;
+    if(desc.toUpperCase().includes('TOTAL GERAL')) continue;
+    if(desc.toUpperCase() === 'DESCRIÇÃO') continue;
+
     if(familias.includes(fam)) lastFam = fam;
-    const familia = lastFam || fam;
+    const familia = lastFam;
     if(!familias.includes(familia)) continue;
-    if(familias.includes(desc.toUpperCase()) && desc.toUpperCase() === familia) continue;
+    if(familias.includes(desc.toUpperCase())) continue;
 
     const meses = {};
     MESES_ALL.forEach(m => {
       const {fd, aevo, proj} = mesIdx[m];
-      const fv = fd >= 0 ? n(r[fd]) : 0;
+      const fv = fd   >= 0 ? n(r[fd])   : 0;
       const av = aevo >= 0 ? n(r[aevo]) : 0;
       const pv = proj >= 0 ? n(r[proj]) : 0;
       if(fv || av || pv) meses[m] = {fd:fv, aevo:av, proj:pv};
@@ -439,21 +442,20 @@ function csvToCifras(rows) {
     cifras.push({
       familia,
       descricao:  desc,
-      orcado:     iORC >= 0 ? n(r[iORC]) : 0,
-      real_fd:    iFD_T >= 0 ? n(r[iFD_T]) : 0,
-      real_aevo:  iAE_T >= 0 ? n(r[iAE_T]) : 0,
+      orcado:     iORC   >= 0 ? n(r[iORC])   : 0,
+      real_fd:    iFD_T  >= 0 ? n(r[iFD_T])  : 0,
+      real_aevo:  iAE_T  >= 0 ? n(r[iAE_T])  : 0,
       real_prov:  iRPROV >= 0 ? n(r[iRPROV]) : 0,
       prov_tot:   iPROVT >= 0 ? n(r[iPROVT]) : 0,
-      real_total: iREAL >= 0 ? n(r[iREAL]) : 0,
+      real_total: iREAL  >= 0 ? n(r[iREAL])  : 0,
       saldo:      iSALDO >= 0 ? n(r[iSALDO]) : 0,
-      projetado:  iPROJ >= 0 ? n(r[iPROJ]) : 0,
-      saldo_proj: iSP >= 0 ? n(r[iSP]) : 0,
+      projetado:  iPROJ  >= 0 ? n(r[iPROJ])  : 0,
+      saldo_proj: iSP    >= 0 ? n(r[iSP])    : 0,
       meses
     });
   }
   return cifras;
 }
-
 let importObra = 'planura';
 
 function abrirImport() {
@@ -480,6 +482,17 @@ function setImportObra(o) {
   document.getElementById('importBtnB').style.border = o==='bom' ? 'none' : '0.5px solid var(--border2)';
 }
 
+function limparDados() {
+  try {
+    localStorage.removeItem('aevo_cifras_' + importObra);
+    localStorage.removeItem('aevo_totais_' + importObra);
+    localStorage.removeItem('aevo_ref_' + importObra);
+  } catch(e) {}
+  document.getElementById('importStatus').textContent = '✓ Dados removidos — usando valores padrão.';
+  document.getElementById('importStatus').style.color = 'var(--accent)';
+  setTimeout(() => { fecharImport(); location.reload(); }, 1200);
+}
+
 function processarImport() {
   const raw = document.getElementById('importTA').value.trim();
   if (!raw) {
@@ -496,7 +509,6 @@ function processarImport() {
     return;
   }
 
-  // Converter para CSV e parsear cifras
   const cifras = csvToCifras(rows);
   if (!cifras.length) {
     document.getElementById('importStatus').textContent = '⚠ Nenhuma cifra encontrada. Verifique a aba selecionada.';
@@ -514,24 +526,21 @@ function processarImport() {
     saldoProj: cifras.reduce((s,c)=>s+(c.saldo_proj||0),0)
   };
 
-  // Atualizar dados da obra
+  // Atualizar dados em memória
   OBRAS[importObra].cifras = cifras;
   OBRAS[importObra].totais = t;
 
-  // Enviar para Sheets em background
-  const url = OBRAS[importObra].url;
-  if (url) {
-    fetch(url.replace('/api/proxy?obra=', '/api/proxy?obra=') + '&_import=1', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({obra: importObra, rows: rows})
-    }).catch(()=>{});
-  }
+  // Salvar no localStorage para persistir entre sessões
+  try {
+    localStorage.setItem('aevo_cifras_' + importObra, JSON.stringify(cifras));
+    localStorage.setItem('aevo_totais_' + importObra, JSON.stringify(t));
+    localStorage.setItem('aevo_ref_' + importObra, new Date().toLocaleDateString('pt-BR'));
+  } catch(e) {}
 
-  // Se for a obra atual, renderizar
+  // Renderizar se for a obra atual
   if (importObra === cObra) render(cifras, t);
 
-  document.getElementById('importStatus').textContent = `✓ ${cifras.length} cifras importadas com sucesso!`;
+  document.getElementById('importStatus').textContent = `✓ ${cifras.length} cifras importadas e salvas!`;
   document.getElementById('importStatus').style.color = 'var(--green)';
   setTimeout(() => fecharImport(), 1500);
 }
@@ -547,18 +556,34 @@ async function selObra(o, btn) {
 async function loadAndRender() {
   const obra = OBRAS[cObra];
 
-  // Carregar dados hardcoded imediatamente
+  // Tentar carregar dados salvos no localStorage (importados pelo usuário)
+  try {
+    const savedCifras = localStorage.getItem('aevo_cifras_' + cObra);
+    const savedTotais = localStorage.getItem('aevo_totais_' + cObra);
+    const savedRef    = localStorage.getItem('aevo_ref_' + cObra);
+    if (savedCifras && savedTotais) {
+      const cifras = JSON.parse(savedCifras);
+      const totais = JSON.parse(savedTotais);
+      if (cifras.length > 0) {
+        obra.cifras = cifras;
+        obra.totais = totais;
+        // Mostrar badge de data da última importação
+        if (savedRef) {
+          const badge = document.getElementById('obraLabel');
+          if (badge) badge.title = 'Dados importados em ' + savedRef;
+        }
+      }
+    }
+  } catch(e) {}
+
+  // Renderizar com dados (hardcoded ou importados do localStorage)
   if(obra.cifras && obra.cifras.length) {
     if(!document.getElementById('k0')){location.reload();return;}
     render(obra.cifras, obra.totais);
   } else {
     document.getElementById('main').innerHTML=`<div style="text-align:center;padding:80px;color:var(--muted);font-size:14px">Dados de ${obra.nome} não disponíveis nesta versão.</div>`;
     cM=cA=cD=null;
-    return;
   }
-
-  // Dados hardcoded são a fonte de verdade — fetch do Sheets desabilitado
-  // (atualizar os dados diretamente no arquivo via nova planilha)
 }
 
 function render(cifras, totais) {
