@@ -288,8 +288,11 @@ html, body { background: var(--bg); color: var(--text); font-family: var(--font-
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: var(--radius-l);
-  padding: 18px 20px;
+  padding: 18px 20px 14px;
   min-width: 0;
+}
+.panel:has(.chart-wrap:last-child) {
+  padding-bottom: 0;
 }
 .panel.alert-panel {
   border-color: rgba(255,107,107,0.25);
@@ -387,7 +390,9 @@ html, body { background: var(--bg); color: var(--text); font-family: var(--font-
 .fam-pct.neutral { color: var(--text-dim); }
 
 /* === Chart wrap === */
-.chart-wrap { position: relative; height: 220px; }
+.chart-wrap { position: relative; height: 220px; margin-bottom: 0; overflow: hidden; }
+.chart-wrap canvas { position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; }
+.panel > .chart-wrap:last-child { margin-bottom: -4px; }
 .chart-wrap.tall { height: 260px; }
 
 /* === Cifras table === */
@@ -590,7 +595,7 @@ tr.expanded .caret-ex { transform: rotate(90deg); color: var(--brand-yellow); }
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:500;font-family:var(--font-sans);cursor:pointer;border:1px solid var(--border-strong);background:var(--bg-elev);color:var(--text);transition:all 0.15s;}
 .btn:hover{background:var(--bg-panel-2);border-color:var(--brand-yellow);color:var(--brand-yellow);}
 .btn.primary{background:var(--brand-yellow);color:#0a1420;border-color:var(--brand-yellow);font-weight:700;}
-.chart-wrap{position:relative;height:200px;}
+.chart-wrap{position:relative;height:220px;overflow:hidden;}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:var(--dens-gap);}
 .grid-3-2{display:grid;grid-template-columns:2fr 1fr;gap:var(--dens-gap);}
 #importBanner{display:none;padding:7px 28px;background:rgba(62,200,160,0.07);border-bottom:1px solid rgba(62,200,160,0.18);font-size:11px;color:var(--good);align-items:center;gap:12px;font-family:var(--font-mono);}
@@ -1458,6 +1463,7 @@ const { useEffect, useRef } = React;
 const CHART_DEFAULTS = {
   responsive: true,
   maintainAspectRatio: false,
+  layout: { padding: { top: 4, bottom: 0, left: 0, right: 0 } },
   interaction: { mode: 'index', intersect: false },
   plugins: {
     legend: { display: false },
@@ -1611,7 +1617,6 @@ function Hero({ obra, totals, cifras }) {
   const orc          = totals.orc;
   const realizado    = totals.real;
   const projetado    = totals.proj;
-  const provisionado = cifras.reduce((s,c) => s+(c.prov_tot||0), 0);
   const contingencia = o.contingencia;
   const aditivo      = o.aditivo;
   const saldoProj    = totals.saldoProj;
@@ -1619,22 +1624,19 @@ function Hero({ obra, totals, cifras }) {
 
   // Teto = orçado + contingência + aditivo
   const teto = orc + contingencia + aditivo;
-  const seg  = v => Math.max(0, Math.min((v / teto) * 100, 100));
+  const pctOf = v => Math.max(0, Math.min((v / teto) * 100, 100));
 
   const isBad      = saldoLiquido < 0;
   const consumoPct = projetado / teto * 100;
 
-  // Segmentos da barra (somam até 100%)
-  const wReal = seg(realizado);
-  const wProv = seg(provisionado);
-  // projetado extra = projetado além do realizado+prov (a realizar ainda não provisionado)
-  const projetadoExtra = Math.max(0, projetado - realizado - provisionado);
-  const wProj = seg(projetadoExtra);
-  // folga dentro do orçado
-  const folgaOrc = Math.max(0, orc - realizado - provisionado - projetadoExtra);
-  const wFolga = seg(folgaOrc);
-  const wCont  = seg(contingencia);
-  const wAdit  = aditivo > 0 ? seg(aditivo) : 0;
+  // Larguras dos 3 blocos fixos
+  const wOrc  = pctOf(orc);
+  const wCont = pctOf(contingencia);
+  const wAdit = aditivo > 0 ? pctOf(aditivo) : 0;
+
+  // Posição dos marcadores dentro da barra
+  const posReal = pctOf(realizado);
+  const posProj = pctOf(projetado);
 
   return (
     <div className="hero">
@@ -1662,52 +1664,104 @@ function Hero({ obra, totals, cifras }) {
         <div style={{ fontSize:11, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:4 }}>
           Decomposição do teto contratual — {fmtBRLk(teto)}
         </div>
-        <div className="stack-bar">
-          {/* Realizado */}
-          <div className="stack-seg realizado" style={{ width:`${wReal}%` }} title={`Realizado ${fmtBRLk(realizado)}`}>
-            {wReal > 10 ? fmtBRLk(realizado) : ''}
+
+        {/* Barra: 3 blocos fixos = Orçado | Contingência | Aditivo */}
+        <div className="stack-bar" style={{ position:'relative' }}>
+
+          {/* Bloco Orçado */}
+          <div style={{
+            width: `${wOrc}%`, height:'100%', background:'var(--bg-panel-2)',
+            borderRight:'1px solid var(--border-strong)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize:10, color:'var(--text-dim)', fontFamily:'var(--font-mono)',
+            position:'relative', overflow:'hidden'
+          }}>
+            {/* Preenchimento realizado dentro do orçado */}
+            <div style={{
+              position:'absolute', left:0, top:0, bottom:0,
+              width:`${Math.min(pctOf(realizado)/wOrc*100,100)}%`,
+              background:'var(--good)', opacity:0.85
+            }}/>
+            {/* Preenchimento projetado (acima do realizado) */}
+            {projetado > realizado && projetado <= orc && (
+              <div style={{
+                position:'absolute', left:`${pctOf(realizado)/wOrc*100}%`, top:0, bottom:0,
+                width:`${Math.min((pctOf(projetado-realizado))/wOrc*100,100)}%`,
+                background:'rgba(255,107,107,0.45)'
+              }}/>
+            )}
+            <span style={{ position:'relative', zIndex:1, fontWeight:600 }}>
+              Orçado {fmtBRLk(orc)}
+            </span>
           </div>
-          {/* Provisionado */}
-          {wProv > 0 && (
-            <div className="stack-seg" style={{ width:`${wProv}%`, background:'rgba(240,208,32,0.55)' }} title={`Provisionado ${fmtBRLk(provisionado)}`}>
-              {wProv > 8 ? fmtBRLk(provisionado) : ''}
-            </div>
-          )}
-          {/* Projetado a realizar */}
-          {wProj > 0 && (
-            <div className="stack-seg projetado" style={{ width:`${wProj}%` }} title={`A realizar (proj.) ${fmtBRLk(projetadoExtra)}`}>
-              {wProj > 10 ? fmtBRLk(projetadoExtra) : ''}
-            </div>
-          )}
-          {/* Folga orçada */}
-          {wFolga > 0 && (
-            <div className="stack-seg gap" style={{ width:`${wFolga}%` }} title={`Folga orçada ${fmtBRLk(folgaOrc)}`}>
-              {wFolga > 10 ? 'folga' : ''}
-            </div>
-          )}
-          {/* Contingência */}
-          <div className="stack-seg contingencia" style={{ width:`${wCont}%` }} title={`Contingência ${fmtBRLk(contingencia)}`}>
-            {wCont > 6 ? 'cont.' : ''}
+
+          {/* Bloco Contingência */}
+          <div style={{
+            width:`${wCont}%`, height:'100%',
+            background: projetado > orc ? 'rgba(255,107,107,0.35)' : 'rgba(240,208,32,0.25)',
+            borderRight: aditivo > 0 ? '1px solid var(--border-strong)' : 'none',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize:10, color:'var(--text-dim)', fontFamily:'var(--font-mono)', fontWeight:600,
+            position:'relative', overflow:'hidden'
+          }}>
+            {/* Se projetado estoura o orçado, preenche cont */}
+            {projetado > orc && (
+              <div style={{
+                position:'absolute', left:0, top:0, bottom:0,
+                width:`${Math.min(pctOf(projetado-orc)/wCont*100,100)}%`,
+                background:'rgba(255,107,107,0.6)'
+              }}/>
+            )}
+            <span style={{ position:'relative', zIndex:1 }}>cont. {fmtBRLk(contingencia)}</span>
           </div>
-          {/* Aditivo */}
+
+          {/* Bloco Aditivo */}
           {wAdit > 0 && (
-            <div className="stack-seg aditivo" style={{ width:`${wAdit}%` }} title={`Aditivo ${fmtBRLk(aditivo)}`}>
-              {wAdit > 6 ? 'adit.' : ''}
+            <div style={{
+              width:`${wAdit}%`, height:'100%',
+              background:'rgba(26,143,166,0.25)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:10, color:'var(--text-dim)', fontFamily:'var(--font-mono)', fontWeight:600,
+              position:'relative', overflow:'hidden'
+            }}>
+              <span style={{ position:'relative', zIndex:1 }}>adit. {fmtBRLk(aditivo)}</span>
             </div>
           )}
+
+          {/* Linha marcadora: Realizado */}
+          <div style={{
+            position:'absolute', left:`${posReal}%`, top:0, bottom:0, width:2,
+            background:'var(--good)', zIndex:10
+          }} title={`Realizado: ${fmtBRLk(realizado)}`}/>
+
+          {/* Linha marcadora: Projetado */}
+          <div style={{
+            position:'absolute', left:`${posProj}%`, top:0, bottom:0, width:2,
+            background:'var(--bad)', zIndex:10,
+            boxShadow:'0 0 6px rgba(255,107,107,0.6)'
+          }} title={`Projetado: ${fmtBRLk(projetado)}`}/>
         </div>
-        <div className="stack-legend">
+
+        {/* Labels das linhas */}
+        <div style={{ position:'relative', height:18, marginTop:2, fontSize:9, fontFamily:'var(--font-mono)', color:'var(--text-muted)' }}>
+          <span style={{ position:'absolute', left:`${posReal}%`, transform:'translateX(-50%)', color:'var(--good)', fontWeight:600 }}>
+            ▲ real. {fmtBRLk(realizado)}
+          </span>
+          <span style={{ position:'absolute', left:`${posProj}%`, transform:'translateX(-50%)', color:'var(--bad)', fontWeight:600, marginTop: posReal > posProj - 15 ? 0 : 0 }}>
+            ▲ proj. {fmtBRLk(projetado)}
+          </span>
+        </div>
+
+        <div className="stack-legend" style={{ marginTop:8 }}>
           <span className="li"><span className="sw" style={{ background:'var(--good)' }}/>Realizado <b style={{ color:'var(--text)', marginLeft:4 }}>{fmtBRLk(realizado)}</b></span>
-          <span className="li"><span className="sw" style={{ background:'rgba(240,208,32,0.7)' }}/>Provisionado <b style={{ color:'var(--text)', marginLeft:4 }}>{fmtBRLk(provisionado)}</b></span>
-          <span className="li"><span className="sw" style={{ background:'rgba(255,107,107,0.85)' }}/>A realizar (proj.) <b style={{ color:'var(--text)', marginLeft:4 }}>{fmtBRLk(projetadoExtra)}</b></span>
-          <span className="li"><span className="sw" style={{ background:'var(--brand-yellow)' }}/>Contingência <b style={{ color:'var(--text)', marginLeft:4 }}>{fmtBRLk(contingencia)}</b></span>
-          {aditivo > 0 && <span className="li"><span className="sw" style={{ background:'var(--brand-teal)' }}/>Aditivo <b style={{ color:'var(--text)', marginLeft:4 }}>{fmtBRLk(aditivo)}</b></span>}
+          <span className="li"><span className="sw" style={{ background:'rgba(255,107,107,0.7)' }}/>Projetado <b style={{ color:'var(--text)', marginLeft:4 }}>{fmtBRLk(projetado)}</b></span>
+          <span className="li"><span className="sw" style={{ background:'rgba(240,208,32,0.5)' }}/>Contingência <b style={{ color:'var(--text)', marginLeft:4 }}>{fmtBRLk(contingencia)}</b></span>
+          {aditivo > 0 && <span className="li"><span className="sw" style={{ background:'rgba(26,143,166,0.5)' }}/>Aditivo <b style={{ color:'var(--text)', marginLeft:4 }}>{fmtBRLk(aditivo)}</b></span>}
         </div>
       </div>
     </div>
   );
 }
-
 
 // --- KPI strip ---
 function KpiStrip({ obra, totals, cifras, monthlyData }) {
