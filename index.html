@@ -6,6 +6,7 @@
 <title>AEVO Energia — Dashboard EPC P&R</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#0c1824;--bg2:#142030;--bg3:#1e2f42;--border:#ffffff20;--border2:#ffffff30;--text:#f0f4f8;--muted:#94b4c8;--accent:#f0d020;--green:#2ec4a0;--red:#f87171;--blue:#4db8c8}
@@ -135,18 +136,12 @@ td:first-child{font-family:'Syne',sans-serif}
 </div>
 
 <!-- Modal de importação -->
+<input type="file" id="xlsxInput" accept=".xlsx,.xlsm,.xls" style="display:none" onchange="handleFileSelect(this)">
 <div id="importModal" style="display:none;position:fixed;inset:0;background:#000000aa;z-index:1000;align-items:center;justify-content:center">
   <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:28px;width:90%;max-width:600px;display:flex;flex-direction:column;gap:16px">
     <div style="display:flex;align-items:center;justify-content:space-between">
       <span style="font-size:15px;font-weight:700;color:var(--text)">Importar dados do Excel</span>
       <button onclick="fecharImport()" style="background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer">✕</button>
-    </div>
-    <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      <b style="color:var(--accent)">Como fazer:</b><br>
-      1. Abra o Excel → aba <b id="importAbaLabel">P&R - TABELA</b><br>
-      2. Clique em <b>A1</b> → <b>Ctrl+Shift+End</b> para selecionar toda a tabela<br>
-      3. Copie: <b>Ctrl+C</b><br>
-      4. Cole abaixo e clique <b>Importar</b> — os dados ficam salvos no browser
     </div>
     <div>
       <label style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Obra destino</label>
@@ -155,11 +150,20 @@ td:first-child{font-family:'Syne',sans-serif}
         <button id="importBtnB" onclick="setImportObra('bom')" style="background:transparent;border:0.5px solid var(--border2);border-radius:5px;padding:5px 14px;font-size:12px;font-family:'Syne',sans-serif;color:var(--muted);cursor:pointer">UFV Bom Despacho</button>
       </div>
     </div>
-    <textarea id="importTA" placeholder="Cole os dados aqui (Ctrl+V)..." style="width:100%;height:140px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:10px;resize:none;box-sizing:border-box"></textarea>
+    <!-- Drop zone / file picker -->
+    <div id="dropZone" onclick="document.getElementById('xlsxInput').click()"
+      ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+      ondragleave="this.style.borderColor='var(--border2)'"
+      ondrop="event.preventDefault();this.style.borderColor='var(--border2)';handleFileDrop(event)"
+      style="border:2px dashed var(--border2);border-radius:10px;padding:32px 20px;text-align:center;cursor:pointer;transition:border-color .2s;background:var(--bg3)">
+      <div style="font-size:28px;margin-bottom:8px">📂</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text)">Clique ou arraste o arquivo Excel aqui</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Aceita .xlsx, .xlsm — a aba <b style="color:var(--accent)">P&R - TABELA</b> será lida automaticamente</div>
+      <div id="dropFileName" style="font-size:11px;color:var(--accent);margin-top:8px;min-height:16px"></div>
+    </div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button onclick="limparDados()" style="background:transparent;border:0.5px solid var(--red);border-radius:6px;padding:8px 14px;color:var(--red);font-family:'Syne',sans-serif;font-size:12px;cursor:pointer" title="Remove dados importados e volta ao hardcoded">🗑 Limpar</button>
+      <button onclick="limparDados()" style="background:transparent;border:0.5px solid var(--red);border-radius:6px;padding:8px 14px;color:var(--red);font-family:'Syne',sans-serif;font-size:12px;cursor:pointer" title="Remove dados importados e volta ao padrão">🗑 Limpar dados</button>
       <button onclick="fecharImport()" style="background:transparent;border:0.5px solid var(--border2);border-radius:6px;padding:8px 18px;color:var(--muted);font-family:'Syne',sans-serif;font-size:13px;cursor:pointer">Cancelar</button>
-      <button onclick="processarImport()" style="background:var(--accent);border:none;border-radius:6px;padding:8px 20px;color:#000;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer">Importar</button>
     </div>
     <div id="importStatus" style="font-size:12px;text-align:center;min-height:16px"></div>
   </div>
@@ -486,63 +490,125 @@ function limparDados() {
   try {
     localStorage.removeItem('aevo_cifras_' + importObra);
     localStorage.removeItem('aevo_totais_' + importObra);
-    localStorage.removeItem('aevo_ref_' + importObra);
+    localStorage.removeItem('aevo_ref_'    + importObra);
   } catch(e) {}
   document.getElementById('importStatus').textContent = '✓ Dados removidos — usando valores padrão.';
   document.getElementById('importStatus').style.color = 'var(--accent)';
   setTimeout(() => { fecharImport(); location.reload(); }, 1200);
 }
 
-function processarImport() {
-  const raw = document.getElementById('importTA').value.trim();
-  if (!raw) {
-    document.getElementById('importStatus').textContent = '⚠ Cole os dados antes de importar.';
-    document.getElementById('importStatus').style.color = 'var(--red)';
+function handleFileDrop(e) {
+  const file = e.dataTransfer.files[0];
+  if (file) processarXlsx(file);
+}
+
+function handleFileSelect(input) {
+  const file = input.files[0];
+  if (file) processarXlsx(file);
+  input.value = ''; // reset para permitir selecionar o mesmo arquivo novamente
+}
+
+function processarXlsx(file) {
+  const status = document.getElementById('importStatus');
+  const dropName = document.getElementById('dropFileName');
+
+  // Verificar extensão
+  if (!/\.(xlsx|xlsm|xls)$/i.test(file.name)) {
+    status.textContent = '⚠ Arquivo inválido. Use .xlsx ou .xlsm';
+    status.style.color = 'var(--red)';
     return;
   }
 
-  // Parsear TSV (Excel copia como tab-separated)
-  const rows = raw.split("\n").map(l => l.split("\t"));
-  if (rows.length < 2) {
-    document.getElementById('importStatus').textContent = '⚠ Dados inválidos. Certifique que copiou da aba correta.';
-    document.getElementById('importStatus').style.color = 'var(--red)';
-    return;
-  }
+  dropName.textContent = '⏳ Lendo ' + file.name + '...';
+  status.textContent = '';
 
-  const cifras = csvToCifras(rows);
-  if (!cifras.length) {
-    document.getElementById('importStatus').textContent = '⚠ Nenhuma cifra encontrada. Verifique a aba selecionada.';
-    document.getElementById('importStatus').style.color = 'var(--red)';
-    return;
-  }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb   = XLSX.read(data, { type: 'array', cellDates: true });
 
-  // Recalcular totais
-  const t = {
-    orc:       cifras.reduce((s,c)=>s+c.orcado,0),
-    real:      cifras.reduce((s,c)=>s+c.real_total,0),
-    saldo:     cifras.reduce((s,c)=>s+c.saldo,0),
+      // Tentar ler a aba correta para cada obra
+      const abaMap = { planura: 'P&R - TABELA', bom: 'P&R - TABELA' };
+      const abaName = abaMap[importObra];
+      const ws = wb.Sheets[abaName];
+
+      if (!ws) {
+        // Listar abas disponíveis para ajudar no diagnóstico
+        status.textContent = '⚠ Aba "' + abaName + '" não encontrada. Abas: ' + wb.SheetNames.join(', ');
+        status.style.color = 'var(--red)';
+        dropName.textContent = '';
+        return;
+      }
+
+      // Converter para array de arrays (como TSV)
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+
+      const cifras = csvToCifras(rows);
+      if (!cifras.length) {
+        status.textContent = '⚠ Nenhuma cifra encontrada na aba ' + abaName;
+        status.style.color = 'var(--red)';
+        dropName.textContent = '';
+        return;
+      }
+
+      // Buscar totais oficiais da aba P&R - RELATÓRIO se existir
+      let totais = calcTotais(cifras); // fallback: calcular das cifras
+      const wsRel = wb.Sheets['P&R - RELATÓRIO'];
+      if (wsRel) {
+        const relRows = XLSX.utils.sheet_to_json(wsRel, { header: 1, defval: '', raw: false });
+        for (const row of relRows) {
+          if ((row[1]||'').toString().trim() === 'Total Geral') {
+            totais = {
+              orc:       n(row[2]),
+              real:      n(row[3]),
+              saldo:     n(row[4]),
+              prov:      n(row[5]),
+              proj:      n(row[6]),
+              saldoProj: n(row[7])
+            };
+            break;
+          }
+        }
+      }
+
+      // Atualizar dados em memória
+      OBRAS[importObra].cifras = cifras;
+      OBRAS[importObra].totais = totais;
+
+      // Salvar no localStorage
+      try {
+        localStorage.setItem('aevo_cifras_' + importObra, JSON.stringify(cifras));
+        localStorage.setItem('aevo_totais_' + importObra, JSON.stringify(totais));
+        localStorage.setItem('aevo_ref_'    + importObra, new Date().toLocaleDateString('pt-BR'));
+      } catch(err) {}
+
+      // Renderizar se for a obra atual
+      if (importObra === cObra) render(cifras, totais);
+
+      dropName.textContent = '✓ ' + file.name;
+      status.textContent = `✓ ${cifras.length} cifras importadas de "${abaName}" — dados salvos no browser!`;
+      status.style.color = 'var(--green)';
+      setTimeout(() => fecharImport(), 2000);
+
+    } catch(err) {
+      status.textContent = '⚠ Erro ao ler arquivo: ' + err.message;
+      status.style.color = 'var(--red)';
+      dropName.textContent = '';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function calcTotais(cifras) {
+  return {
+    orc:       cifras.reduce((s,c)=>s+c.orcado,      0),
+    real:      cifras.reduce((s,c)=>s+c.real_total,   0),
+    saldo:     cifras.reduce((s,c)=>s+c.saldo,        0),
     prov:      cifras.reduce((s,c)=>s+(c.prov_tot||0),0),
-    proj:      cifras.reduce((s,c)=>s+c.projetado,0),
+    proj:      cifras.reduce((s,c)=>s+c.projetado,    0),
     saldoProj: cifras.reduce((s,c)=>s+(c.saldo_proj||0),0)
   };
-
-  // Atualizar dados em memória
-  OBRAS[importObra].cifras = cifras;
-  OBRAS[importObra].totais = t;
-
-  // Salvar no localStorage para persistir entre sessões
-  try {
-    localStorage.setItem('aevo_cifras_' + importObra, JSON.stringify(cifras));
-    localStorage.setItem('aevo_totais_' + importObra, JSON.stringify(t));
-    localStorage.setItem('aevo_ref_' + importObra, new Date().toLocaleDateString('pt-BR'));
-  } catch(e) {}
-
-  // Renderizar se for a obra atual
-  if (importObra === cObra) render(cifras, t);
-
-  document.getElementById('importStatus').textContent = `✓ ${cifras.length} cifras importadas e salvas!`;
-  document.getElementById('importStatus').style.color = 'var(--green)';
-  setTimeout(() => fecharImport(), 1500);
 }
 
 async function selObra(o, btn) {
