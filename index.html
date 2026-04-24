@@ -239,9 +239,9 @@ const C = {
   FD_NOV:8,  FD_DEZ:9,  FD_JAN:10, FD_FEV:11, FD_MAR:12, FD_ABR:13,
   AE_NOV:17, AE_DEZ:18, AE_JAN:19, AE_FEV:20, AE_MAR:21, AE_ABR:22,
   FD_TOT:16, AE_TOT:25,
-  REAL_TOTAL:27, SALDO:28,
-  PROJ_NOV:44, PROJ_DEZ:45, PROJ_JAN:46, PROJ_FEV:47, PROJ_MAR:48, PROJ_ABR:49,
-  PROJ_TOT:52, SALDO_PROJ:54, PROJETADO:43
+  REAL_TOTAL:35, SALDO:36,
+  PROJ_NOV:51, PROJ_DEZ:52, PROJ_JAN:53, PROJ_FEV:54, PROJ_MAR:55, PROJ_ABR:56,
+  PROJ_TOT:59, SALDO_PROJ:60, PROJETADO:50
 };
 
 // Totais oficiais do P&R RELATÓRIO (linha Total Geral)
@@ -395,8 +395,8 @@ function csvToCifras(rows) {
   const iAE_T = idx('REAL AEVO - TOT');
   const iRPROV= idx('REAL - PROVISIONADO');
   const iPROVT= idx('PROV - TOT');
-  const iREAL = idx('REAL - TOTAL');
-  const iSALDO= idx('REAL - SALDO ') >= 0 ? idx('REAL - SALDO ') : (idx('REAL - SALDO') >= 0 ? idx('REAL - SALDO') : idx('SALDO'));
+  const iREAL = idx('REAL - TOTAL') >= 0 ? idx('REAL - TOTAL') : (idx('REAL- TOTAL') >= 0 ? idx('REAL- TOTAL') : idx('REAL TOTAL'));
+  const iSALDO= idx('SALDO') >= 0 ? idx('SALDO') : (idx('REAL - SALDO') >= 0 ? idx('REAL - SALDO') : idx('REAL - SALDO '));
   const iPROJ = idx('PROJ - TOT') >= 0 ? idx('PROJ - TOT') : (idx('PROJETADO R$') >= 0 ? idx('PROJETADO R$') : -1);
   const iSP   = idx('SALDO PROJETADO $');
   
@@ -572,6 +572,12 @@ async function loadAndRender() {
     const rows = parseCSV(csv);
     const cifras = csvToCifras(rows);
     if(!cifras.length) return;
+    // Só atualiza se retornar dados completos (evita sobrescrever com dados ruins)
+    if(cifras.length < (obra.cifras||[]).length * 0.8) return;
+    // Validar que os dados têm valores reais (evita sobrescrever com colunas zeradas)
+    const sumReal = cifras.reduce((s,c) => s + (c.real_total||0) + (c.real_fd||0) + (c.real_aevo||0), 0);
+    const sumHard = (obra.cifras||[]).reduce((s,c) => s + (c.real_total||0) + (c.real_fd||0) + (c.real_aevo||0), 0);
+    if(sumHard > 0 && sumReal < sumHard * 0.1) return; // dados do Sheets parecem zerados
     // Atualizar com dados frescos do Sheets
     obra.cifras = cifras;
     // Recalcular totais a partir das cifras do Sheets
