@@ -888,18 +888,36 @@ function processarXlsx(file) {
       const abasPossiveis  = ['P&R - TABELA', 'PXR_ABC ', 'PXR_ABC', 'PXR'];
       const relPossiveis   = ['P&R - RELATÓRIO', 'PXR_RELATORIO', 'PXR RELATORIO'];
 
-      // Detectar aba de dados
-      const abaName = abasPossiveis.find(a => wb.Sheets[a]) || null;
-      if (!abaName) {
+      // Detectar aba de dados — preferir a que tem PROJ-TOT
+      let abaName = null;
+      let rows = null;
+      for (const a of abasPossiveis) {
+        if (!wb.Sheets[a]) continue;
+        const r = XLSX.utils.sheet_to_json(wb.Sheets[a], { header: 1, defval: '', raw: true });
+        if (!r || !r[0]) continue;
+        const hh = r[0].map(v => (v||'').toString().trim().toUpperCase());
+        // Preferir aba que tem PROJ - TOT (aba completa do BD)
+        if (hh.includes('PROJ - TOT') || hh.includes('FAMÍLIA')) {
+          abaName = a; rows = r; break;
+        }
+        // Fallback: aceitar qualquer aba com FAMÍLIA
+        if (!abaName && hh.some(v => v === 'FAMÍLIA' || v === 'FAMILIA')) {
+          abaName = a; rows = r;
+        }
+      }
+      if (!abaName || !rows) {
         status.textContent = '⚠ Nenhuma aba de dados encontrada. Abas: ' + wb.SheetNames.join(', ');
         status.style.color = 'var(--red)';
         dropName.textContent = '';
         return;
       }
-
-      const ws   = wb.Sheets[abaName];
-      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
+      // DEBUG
+      const hdrDebug = (rows[0]||[]).map((v,i) => i+':'+v).filter(s=>s.includes('PROJ')||s.includes('SALDO')||s.includes('FAMÍLIA'));
+      console.log('HEADER BD:', hdrDebug.join(' | '));
+      const est = detectarEstrutura(rows[0]);
+      if(est) console.log('iPROJ='+est.iPROJ+' iSP='+est.iSP+' iFAM='+est.iFAM);
       const cifras = csvToCifras(rows);
+      console.log('cifras[0].projetado=', cifras[0]?.projetado, 'cifras[0].saldo_proj=', cifras[0]?.saldo_proj);
 
       if (!cifras.length) {
         status.textContent = '⚠ Nenhuma cifra encontrada na aba ' + abaName;
