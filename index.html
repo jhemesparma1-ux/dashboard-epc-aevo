@@ -707,8 +707,7 @@ window.TOTAIS_BOM={orc:5535137.65,real:4388928.94,saldo:1146208.71,prov:1730353.
 function limparDados(o){try{['cifras','totais','ref'].forEach(k=>localStorage.removeItem('aevo_'+k+'_'+o));}catch(e){}}
 function limparTodos(){['planura','bom'].forEach(o=>{try{['cifras','totais','ref'].forEach(k=>localStorage.removeItem('aevo_'+k+'_'+o));}catch(e){}});location.reload();}
 function saveToStorage(o,c,t){try{localStorage.setItem('aevo_cifras_'+o,JSON.stringify(c));localStorage.setItem('aevo_totais_'+o,JSON.stringify(t));localStorage.setItem('aevo_ref_'+o,new Date().toLocaleDateString('pt-BR'));}catch(e){}}
-var _DV='2026-04-28';
-function loadFromStorage(o){try{if(localStorage.getItem('_dv_'+o)!==_DV){try{['cifras','totais','ref'].forEach(k=>localStorage.removeItem('aevo_'+k+'_'+o));}catch(e){}return null;}const sc=localStorage.getItem('aevo_cifras_'+o),st=localStorage.getItem('aevo_totais_'+o),ref=localStorage.getItem('aevo_ref_'+o);if(!sc||!st)return null;const c=JSON.parse(sc),t=JSON.parse(st);if(c.length<1||t.orc<1000){limparDados(o);return null;}return{cifras:c,totais:t,ref};}catch(e){limparDados(o);return null;}}
+function loadFromStorage(o){try{const sc=localStorage.getItem('aevo_cifras_'+o),st=localStorage.getItem('aevo_totais_'+o),ref=localStorage.getItem('aevo_ref_'+o);if(!sc||!st)return null;const c=JSON.parse(sc),t=JSON.parse(st);if(c.length<1||t.orc<1000){limparDados(o);return null;}return{cifras:c,totais:t,ref};}catch(e){limparDados(o);return null;}}
 function detectarEstrutura(hdr) {
   // Normaliza: trim + upper + colapsa espaços
   const h = hdr.map(v => (v||'').toString().trim().toUpperCase().replace(/\s+/g,' '));
@@ -832,16 +831,7 @@ function setImportObra(o) {
   document.getElementById('importBtnB').style.border     = o==='bom' ? 'none' : '0.5px solid var(--border2)';
 }
 
-function limparTodosOsDados() {
-  ['planura','bom'].forEach(o => {
-    try {
-      localStorage.removeItem('aevo_cifras_' + o);
-      localStorage.removeItem('aevo_totais_' + o);
-      localStorage.removeItem('aevo_ref_'    + o);
-    } catch(e) {}
-  });
-  location.reload();
-}
+function limparTodosOsDados(){['planura','bom'].forEach(o=>{try{['cifras','totais','ref'].forEach(k=>localStorage.removeItem('aevo_'+k+'_'+o));}catch(e){}});location.reload();}
 
 function limparDadosModal() {
   try {
@@ -888,29 +878,17 @@ function processarXlsx(file) {
       const abasPossiveis  = ['P&R - TABELA', 'PXR_ABC ', 'PXR_ABC', 'PXR'];
       const relPossiveis   = ['P&R - RELATÓRIO', 'PXR_RELATORIO', 'PXR RELATORIO'];
 
-      // Detectar aba de dados — preferir a que tem PROJ-TOT
-      let abaName = null;
-      let rows = null;
-      for (const a of abasPossiveis) {
-        if (!wb.Sheets[a]) continue;
-        const r = XLSX.utils.sheet_to_json(wb.Sheets[a], { header: 1, defval: '', raw: true });
-        if (!r || !r[0]) continue;
-        const hh = r[0].map(v => (v||'').toString().trim().toUpperCase());
-        // Preferir aba que tem PROJ - TOT (aba completa do BD)
-        if (hh.includes('PROJ - TOT') || hh.includes('FAMÍLIA')) {
-          abaName = a; rows = r; break;
-        }
-        // Fallback: aceitar qualquer aba com FAMÍLIA
-        if (!abaName && hh.some(v => v === 'FAMÍLIA' || v === 'FAMILIA')) {
-          abaName = a; rows = r;
-        }
-      }
-      if (!abaName || !rows) {
+      // Detectar aba de dados
+      const abaName = abasPossiveis.find(a => wb.Sheets[a]) || null;
+      if (!abaName) {
         status.textContent = '⚠ Nenhuma aba de dados encontrada. Abas: ' + wb.SheetNames.join(', ');
         status.style.color = 'var(--red)';
         dropName.textContent = '';
         return;
       }
+
+      const ws   = wb.Sheets[abaName];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
       const cifras = csvToCifras(rows);
 
       if (!cifras.length) {
@@ -922,21 +900,11 @@ function processarXlsx(file) {
 
       // Totais: tentar aba de relatório, fallback = calcular das cifras
       let totais = calcTotais(cifras);
-      const relName = relPossiveis.find(a => wb.Sheets[a]);
-      if (relName) {
-        const relRows = XLSX.utils.sheet_to_json(wb.Sheets[relName], { header:1, defval:'', raw:true });
-        for (const row of relRows) {
-          if ((row[1]||'').toString().trim() === 'Total Geral') {
-            totais.orc = n(row[2]) || totais.orc;
-            break;
-          }
-        }
-      }
+      // Não usar relatório para totais — calcTotais já usa PROJ-TOT e SALDO PROJETADO $ corretamente
 
       // Atualizar memória + localStorage
       OBRAS[importObra].cifras = cifras;
       OBRAS[importObra].totais = totais;
-      console.log('importObra='+importObra+' cObra='+cObra+' proj='+totais.proj+' saldoProj='+totais.saldoProj);
       try {
         const ref = new Date().toLocaleDateString('pt-BR');
         localStorage.setItem('aevo_cifras_' + importObra, JSON.stringify(cifras));
@@ -944,7 +912,7 @@ function processarXlsx(file) {
         localStorage.setItem('aevo_ref_'    + importObra, ref);
       } catch(err) {}
 
-      console.log('TOTAIS antes do render:', JSON.stringify(totais)); if (importObra === cObra) render(cifras, totais);
+      if (importObra === cObra) render(cifras, totais);
 
       dropName.textContent = '✓ ' + file.name;
       status.textContent = `✓ ${cifras.length} cifras importadas de "${abaName}" — salvo no browser!`;
