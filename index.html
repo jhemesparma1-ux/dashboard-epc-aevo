@@ -910,6 +910,28 @@ function calcTotais(cifras) {
 </script>
 
 <div id="root"></div>
+<div id="startup-error" style="display:none;color:#f87171;padding:30px;font-family:monospace;font-size:13px;position:fixed;top:0;left:0;right:0;bottom:0;background:#0a1420;overflow:auto;z-index:9999">
+  <b>ERRO DE INICIALIZAÇÃO:</b><br>
+  <pre id="startup-error-msg"></pre>
+</div>
+<script>
+window.onerror = function(msg, src, line, col, err) {
+  var el = document.getElementById('startup-error');
+  var msg_el = document.getElementById('startup-error-msg');
+  if (el && msg_el) {
+    el.style.display = 'block';
+    msg_el.textContent += 'ERROR: ' + msg + '\nSource: ' + src + ' line:' + line + '\n' + (err ? err.stack : '') + '\n\n';
+  }
+};
+window.addEventListener('unhandledrejection', function(e) {
+  var el = document.getElementById('startup-error');
+  var msg_el = document.getElementById('startup-error-msg');
+  if (el && msg_el) {
+    el.style.display = 'block';
+    msg_el.textContent += 'UNHANDLED: ' + (e.reason ? e.reason.toString() : e) + '\n';
+  }
+});
+</script>
 
 <script type="text/babel">
 
