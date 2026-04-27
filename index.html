@@ -621,7 +621,7 @@ window.CIFRAS_BOM=[{"familia":"EQUIPAMENTO","descricao":"RETROESCAVADEIRA","orca
 window.DATA_VERSION='2026-04-27-v2';
 window.TOTAIS_BOM={orc:5535137.65,real:4388928.94,saldo:1146208.71,prov:1730353.32,proj:6119282.26,saldoProj:-584144.61};
 function limparDados(o){try{['cifras','totais','ref'].forEach(k=>localStorage.removeItem('aevo_'+k+'_'+o));}catch(e){}}
-function limparTodos(){['planura','bom'].forEach(limparDados);location.reload();}
+function limparTodos(){['planura','bom'].forEach(_limparStorage);location.reload();}
 function saveToStorage(o,c,t){try{localStorage.setItem('aevo_cifras_'+o,JSON.stringify(c));localStorage.setItem('aevo_totais_'+o,JSON.stringify(t));localStorage.setItem('aevo_ref_'+o,new Date().toLocaleDateString('pt-BR'));localStorage.setItem('aevo_ver_'+o,window.DATA_VERSION);}catch(e){}}
 function loadFromStorage(o){
   try{
@@ -769,15 +769,23 @@ function limparTodosOsDados() {
   location.reload();
 }
 
-function limparDados() {
+function _limparStorage(obra) {
   try {
-    localStorage.removeItem('aevo_cifras_' + importObra);
-    localStorage.removeItem('aevo_totais_' + importObra);
-    localStorage.removeItem('aevo_ref_'    + importObra);
+    localStorage.removeItem('aevo_cifras_' + obra);
+    localStorage.removeItem('aevo_totais_' + obra);
+    localStorage.removeItem('aevo_ref_'    + obra);
+    localStorage.removeItem('aevo_ver_'    + obra);
   } catch(e) {}
-  document.getElementById('importStatus').textContent = '✓ Dados removidos — usando valores padrão.';
-  document.getElementById('importStatus').style.color = 'var(--accent)';
-  setTimeout(() => { fecharImport(); location.reload(); }, 1200);
+}
+
+function limparDadosModal() {
+  _limparStorage(importObra);
+  const el = document.getElementById('importStatus');
+  if (el) {
+    el.textContent = '✓ Dados removidos — usando valores padrão.';
+    el.style.color = 'var(--accent)';
+  }
+  setTimeout(() => { location.reload(); }, 800);
 }
 
 function handleFileDrop(e) {
