@@ -943,7 +943,7 @@ function processarXlsx(file) {
         localStorage.setItem('aevo_ref_'    + importObra, ref);
       } catch(err) {}
 
-      if (importObra === cObra) render(cifras, totais);
+      console.log('TOTAIS antes do render:', JSON.stringify(totais)); if (importObra === cObra) render(cifras, totais);
 
       dropName.textContent = '✓ ' + file.name;
       status.textContent = `✓ ${cifras.length} cifras importadas de "${abaName}" — salvo no browser!`;
