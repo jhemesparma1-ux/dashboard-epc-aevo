@@ -924,30 +924,32 @@ function processarXlsx(file) {
       const relName = relPossiveis.find(a => wb.Sheets[a]);
       if (relName) {
         const relRows = XLSX.utils.sheet_to_json(wb.Sheets[relName], { header:1, defval:'', raw:true });
-        // Encontrar cabeçalho e Total Geral
-        let hdrRow = null;
         for (const row of relRows) {
-          const vals = row.map(v => (v||'').toString().trim().toUpperCase());
-          if (vals.some(v => v.includes('ORÇADO') || v.includes('ORCADO')) && vals.some(v => v.includes('PROJETADO'))) {
-            hdrRow = vals; // guardar como array de strings normalizadas
-          }
           if ((row[1]||'').toString().trim() === 'Total Geral') {
-            if (hdrRow) {
-              // Mapear pelo nome da coluna
-              const gi = name => {
-                const i = hdrRow.findIndex(h => h.replace(/\s+/g,' ').includes(name.toUpperCase()));
-                return i >= 0 ? n(row[i]) : 0;
-              };
-              totais = {
-                orc:       gi('ORÇADO') || gi('ORCADO'),
-                real:      gi('REALIZADO'),
-                saldo:     gi('SALDO REAL') || gi('SALDO PROJE') > 0 ? 0 : gi('SALDO'),
-                prov:      gi('PROVISIONADO'),
-                proj:      gi('PROJETADO'),
-                saldoProj: gi('SALDO PROJETADO'),
-              };
-              // Recalcular saldo se não encontrado
-              if (!totais.saldo) totais.saldo = totais.orc - totais.real;
+            // Layout igual em ambas as planilhas:
+            // col2=orc, col3=real, col4=prov, col5=proj, col6=saldoProj
+            // (Planura tem col4=saldo e col5=prov, mas o valor de saldo é calculado)
+            totais = {
+              orc:       n(row[2]),
+              real:      n(row[3]),
+              saldo:     n(row[4]),
+              prov:      n(row[4]),
+              proj:      n(row[5]),
+              saldoProj: n(row[6])
+            };
+            // Detectar layout pelo valor:
+            // Planura: row[4]=saldo (~289k), row[5]=prov (~878k), row[6]=proj (~3.4M)
+            // BomDesp: row[4]=prov (~1.7M), row[5]=proj (~6.1M), row[6]=saldoProj (~-584k)
+            // Se row[3] (real) > row[5] (proj) — impossível — então é layout Planura
+            // Melhor: se row[5] > row[2] (proj > orc) e row[6] < 0 → BomDesp
+            if (n(row[5]) > n(row[2]) * 0.5 && Math.abs(n(row[6])) < n(row[2])) {
+              // Bom Despacho layout: col3=real, col4=prov, col5=proj, col6=saldoProj
+              totais = { orc:n(row[2]), real:n(row[3]), saldo:n(row[2])-n(row[3]),
+                         prov:n(row[4]), proj:n(row[5]), saldoProj:n(row[6]) };
+            } else {
+              // Planura layout: col3=real, col4=saldo, col5=prov, col6=proj, col7=saldoProj
+              totais = { orc:n(row[2]), real:n(row[3]), saldo:n(row[4]),
+                         prov:n(row[5]), proj:n(row[6]), saldoProj:n(row[7]) };
             }
             break;
           }
@@ -2338,7 +2340,7 @@ function ImportModal({ onClose, currentObra, onDataLoaded }) {
             onChange={e=>{const f=e.target.files[0];if(f)handle(f);e.target.value='';}}/>
           <div className="dropzone-ico">📊</div>
           <div className="dropzone-text">Arraste o Excel aqui ou clique para selecionar</div>
-          <div className="dropzone-hint">Aba <b style={{color:'var(--brand-yellow)'}}>P&R - TABELA</b> ou <b style={{color:'var(--brand-yellow)'}}>PXR_ABC</b> detectada automaticamente</div>
+          <div className="dropzone-hint">Aba <b style={{color:'var(--brand-yellow)'}}>P&amp;R - TABELA</b> ou <b style={{color:'var(--brand-yellow)'}}>PXR_ABC</b> detectada automaticamente</div>
           {filename && <div style={{fontSize:11,color:'var(--brand-yellow)',marginTop:10,fontFamily:'var(--font-mono)'}}>{filename}</div>}
         </div>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -2466,7 +2468,7 @@ function App() {
         </div>
         <CifrasTable cifras={cifras} meses={o.meses} activeFam={activeFam} onFamFilter={setActiveFam}/>
         <div style={{textAlign:'center',fontSize:10,color:'var(--text-muted)',fontFamily:'var(--font-mono)',padding:'20px 0'}}>
-          AEVO ENERGIA · P&R EPC · Dados ref. ABR/2026 · {cifras.length} cifras · {o.meses.length} meses acompanhados
+          AEVO ENERGIA · P&amp;R EPC · Dados ref. ABR/2026 · {cifras.length} cifras · {o.meses.length} meses acompanhados
         </div>
       </main>
       {showImport && <ImportModal onClose={()=>setShowImport(false)} currentObra={obra} onDataLoaded={handleDataLoaded}/>}
