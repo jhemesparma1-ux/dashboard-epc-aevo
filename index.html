@@ -936,6 +936,7 @@ function processarXlsx(file) {
       // Atualizar memória + localStorage
       OBRAS[importObra].cifras = cifras;
       OBRAS[importObra].totais = totais;
+      console.log('importObra='+importObra+' cObra='+cObra+' proj='+totais.proj+' saldoProj='+totais.saldoProj);
       try {
         const ref = new Date().toLocaleDateString('pt-BR');
         localStorage.setItem('aevo_cifras_' + importObra, JSON.stringify(cifras));
