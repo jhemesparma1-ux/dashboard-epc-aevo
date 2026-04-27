@@ -576,6 +576,8 @@ tr.expanded .caret-ex { transform: rotate(90deg); color: var(--brand-yellow); }
   .grid-2   { grid-template-columns: 1fr; }
   .hero { grid-template-columns: 1fr; }
   .cifras-table { font-size: 11px; }
+  /* Gráfico mensal ocupa largura total no tablet */
+  .chart-monthly-wrap { min-height: 260px; }
 }
 
 /* ── MOBILE ── */
@@ -601,7 +603,6 @@ tr.expanded .caret-ex { transform: rotate(90deg); color: var(--brand-yellow); }
   .hero-sub { font-size: 10px; flex-wrap: wrap; gap: 4px; }
   .budget-stack { gap: 8px; }
   .stack-bar { height: 28px; }
-  .stack-seg { font-size: 9px; padding: 0 6px; }
   .stack-legend { font-size: 9px; gap: 8px; flex-wrap: wrap; }
   .sw { width: 8px; height: 8px; }
 
@@ -612,6 +613,10 @@ tr.expanded .caret-ex { transform: rotate(90deg); color: var(--brand-yellow); }
   .k-val { font-size: 18px; }
   .k-sub { font-size: 9px; }
 
+  /* Grids — SEMPRE coluna única no mobile */
+  .grid-2   { grid-template-columns: 1fr !important; }
+  .grid-3-2 { grid-template-columns: 1fr !important; }
+
   /* Painéis */
   .panel { padding: 12px; border-radius: 10px; }
   .panel-head { margin-bottom: 10px; flex-wrap: wrap; gap: 6px; }
@@ -619,35 +624,34 @@ tr.expanded .caret-ex { transform: rotate(90deg); color: var(--brand-yellow); }
   .panel-meta { font-size: 9px; }
   .legend { font-size: 9px; gap: 8px; }
 
-  /* Grids — coluna única */
-  .grid-2   { grid-template-columns: 1fr; }
-  .grid-3-2 { grid-template-columns: 1fr; }
+  /* Gráfico mensal — altura reduzida em mobile */
+  .chart-wrap { height: 180px !important; }
+
+  /* Cifras estourando — simplificar */
+  .alert-row { padding: 8px 10px; }
+  .alert-name { font-size: 10px; }
 
   /* Tabela — scroll horizontal */
-  .table-wrap { margin: 0 -12px; padding: 0 12px; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .cifras-table { font-size: 10px; min-width: 560px; }
   .cifras-table th { padding: 6px 6px; font-size: 8px; }
   .cifras-table td { padding: 6px 6px; }
-  .cifras-table td:first-child { max-width: 160px; }
 
   /* Filtros */
   .table-controls { flex-wrap: wrap; gap: 8px; }
   .filter-chips { flex-wrap: wrap; gap: 4px; }
   .chip { font-size: 10px; padding: 3px 8px; }
-  .search-box input { font-size: 11px; }
 
-  /* Tweaks panel — esconder em mobile */
+  /* Tweaks panel — esconder */
   .twk-panel { display: none; }
 
-  /* Obra menu */
-  .obra-menu { min-width: 200px; }
-  .obra-menu-item { padding: 10px 12px; }
+  /* Botão importar — só ícone */
+  .btn-import-text { display: none; }
 
-  /* Scrollbars menores */
+  /* Scrollbars finas */
   ::-webkit-scrollbar { width: 4px; height: 4px; }
 }
 
-/* ── MOBILE PEQUENO (≤380px) ── */
 @media (max-width: 380px) {
   .kpi-strip { grid-template-columns: 1fr 1fr; }
   .k-val { font-size: 16px; }
