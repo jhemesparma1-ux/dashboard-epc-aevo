@@ -912,12 +912,10 @@ function processarXlsx(file) {
         localStorage.setItem('aevo_ref_'    + importObra, ref);
       } catch(err) {}
 
-      if (importObra === cObra) render(cifras, totais);
-
       dropName.textContent = '✓ ' + file.name;
-      status.textContent = `✓ ${cifras.length} cifras importadas de "${abaName}" — salvo no browser!`;
+      status.textContent = `✓ ${cifras.length} cifras importadas de "${abaName}"! Atualizando...`;
       status.style.color = 'var(--green)';
-      setTimeout(() => fecharImport(), 2000);
+      setTimeout(() => { location.reload(); }, 1200);
 
     } catch(err) {
       status.textContent = '⚠ Erro: ' + err.message;
