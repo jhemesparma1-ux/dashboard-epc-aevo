@@ -2752,6 +2752,211 @@ function PFFat({d}) {
   );
 }
 
+function App() {
+  const [tweaks, setTweaks] = useTweaks(DEFAULTS);
+  const [obra, setObra] = useState('planura');
+  const [view, setView] = useState('epc');
+  const [activeFam, setActiveFam] = useState(null);
+  const [showImport, setShowImport] = useState(false);
+  const [localData, setLocalData] = useState({});
+
+  // Load from localStorage on init
+  useEffect(() => {
+    const ld = {};
+    ['planura','bom','fh'].forEach(id => {
+      const saved = loadFromStorage(id);
+      if (saved) { ld[id] = saved; OBRAS[id].cifras = saved.cifras; OBRAS[id].totais = saved.totais; }
+    });
+    setLocalData(ld);
+    // Show banner if any imported data
+    const banner = document.getElementById('importBanner');
+    const bannerRef = document.getElementById('importBannerRef');
+    if (banner && Object.keys(ld).length > 0) {
+      banner.style.display = 'flex';
+      if (bannerRef) {
+        const refs = Object.entries(ld).map(([id,d])=>OBRAS[id].nome+(d.ref?' ('+d.ref+')':'')).join(' · ');
+        bannerRef.textContent = refs;
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-density', tweaks.density);
+    document.documentElement.setAttribute('data-accent', tweaks.accent);
+    document.documentElement.setAttribute('data-theme', tweaks.theme);
+  }, [tweaks]);
+
+  const o = OBRAS[obra];
+  const cifras = o.cifras || [];
+  const totals = o.totais || {};
+
+  const scrollToCifra = () => {
+    document.querySelector('.cifras-table')?.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+
+  const handleDataLoaded = (id, cifras, totais) => {
+    OBRAS[id].cifras = cifras;
+    OBRAS[id].totais = totais;
+    setLocalData(prev => ({...prev, [id]:{cifras,totais}}));
+    const banner = document.getElementById('importBanner');
+    if (banner) banner.style.display = 'flex';
+  };
+
+  return (
+    <div className="aevo-app">
+      <nav className="aevo-nav">
+        <div className="aevo-nav-header">
+          <div className="aevo-nav-brand">
+            <div className="aevo-nav-brand-logo">AV</div>
+            <div>
+              <div className="aevo-nav-brand-name">AEVO Energia</div>
+              <div className="aevo-nav-brand-sub">EPC Dashboard</div>
+            </div>
+          </div>
+        </div>
+        <div className="aevo-nav-sec">Obras</div>
+        {Object.values(OBRAS).map(function(o){return (
+          <div key={o.id} className={'aevo-nav-item'+(obra===o.id?' active':'')}
+            onClick={function(){setObra(o.id);setView('epc');}}>
+            <div className="aevo-nav-obra-dot"/>
+            <div>
+              <div>{o.nome}</div>
+              <div className="aevo-nav-obra-local">{o.local}</div>
+            </div>
+          </div>
+        );})}
+        <div className="aevo-nav-sec">Análises</div>
+        <div className={'aevo-nav-item'+(view==='epc'?' active':'')} onClick={function(){setView('epc');}}>
+          <div className="aevo-nav-icon icon-pnr">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <div>
+            <div>Previsto &amp; Realizado</div>
+            <div className="aevo-nav-obra-local">Custos EPC</div>
+          </div>
+        </div>
+        <div className={'aevo-nav-item'+(view==='hist'?' active':'')} onClick={function(){setView('hist');}}>
+          <div className="aevo-nav-icon icon-hist">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="6" width="4" height="15" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg>
+          </div>
+          <div>
+            <div>Histograma MO</div>
+            <div className="aevo-nav-obra-local">Horas por semana</div>
+          </div>
+        </div>
+        <div className={'aevo-nav-item'+(view==='fat'?' active':'')} onClick={function(){setView('fat');}}>
+          <div className="aevo-nav-icon icon-fat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <div>
+            <div>Faturamento Direto</div>
+            <div className="aevo-nav-obra-local">Lançamentos OMIE</div>
+          </div>
+        </div>
+        <div className={'aevo-nav-item'+(view==='med'?' active':'')} onClick={function(){setView('med');}}>
+          <div className="aevo-nav-icon icon-med">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          </div>
+          <div>
+            <div>Medição / Curva S</div>
+            <div className="aevo-nav-obra-local">BMs e avanço físico</div>
+          </div>
+        </div>
+        <div className="aevo-nav-footer">AEVO Energia · v2025</div>
+      </nav>
+      <div className="aevo-content">
+      <>
+      <Header obra={obra} onObraChange={setObra} onImport={()=>setShowImport(true)} refDate={(() => {
+      const d = new Date();
+      const dow = d.getDay(); // 0=dom..6=sab
+      const diff = dow >= 5 ? dow - 5 : dow + 2; // dias desde última sexta
+      d.setDate(d.getDate() - diff);
+      return 'Semana de ' + d.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' });
+    })()}/>
+      {view==="epc" && <main className="main">
+        <Hero obra={obra} totals={totals} cifras={cifras}/>
+        <KpiStrip obra={obra} totals={totals} cifras={cifras}/>
+        {tweaks.showAlerts && (
+          <div className="grid-3-2">
+            <div style={{
+              background:'var(--bg-panel)', border:'1px solid var(--border)',
+              borderRadius:'var(--radius-l)', overflow:'hidden',
+              display:'flex', flexDirection:'column'
+            }}>
+              <div className="panel-head" style={{padding:'14px 16px 10px', marginBottom:0, flexShrink:0}}>
+                <span className="panel-title">Realizado mensal — FD (RDObras) vs AEVO (OMIE)</span>
+                <div className="legend">
+                  <span className="li"><span className="sw" style={{background:'#4ea6ff'}}/>FD</span>
+                  <span className="li"><span className="sw" style={{background:'#f0d020'}}/>AEVO</span>
+                  <span className="li"><span className="sw" style={{background:'rgba(255,255,255,0.3)'}}/>Total</span>
+                </div>
+              </div>
+              <div style={{flex:1, minHeight:240, display:'flex', flexDirection:'column'}}>
+                <ChartMonthly cifras={cifras} meses={o.meses}/>
+              </div>
+            </div>
+            <AlertsPanel cifras={cifras} onClickCifra={scrollToCifra}/>
+          </div>
+        )}
+        <div className="panel" style={{paddingBottom:0}}>
+          <div className="panel-head">
+            <span className="panel-title">Acumulado no tempo — realizado vs projetado vs orçado</span>
+            <div className="legend">
+              <span className="li"><span className="sw" style={{background:'#3ec8a0'}}/>Realizado</span>
+              <span className="li"><span className="sw" style={{background:'#ff6b6b'}}/>Projetado</span>
+              <span className="li"><span className="sw" style={{background:'rgba(255,255,255,0.2)'}}/>Orçado</span>
+              <span className="li"><span className="sw" style={{background:'#f0d020',opacity:0.7}}/>Teto contratual</span>
+            </div>
+          </div>
+          <div className="chart-wrap" style={{height:260}}><ChartAccum cifras={cifras} meses={o.meses} totals={totals} obra={obra}/></div>
+        </div>
+        <div className="grid-2">
+          <div className="panel" style={{paddingBottom:0}}>
+            <div className="panel-head">
+              <span className="panel-title">Faturamento acumulado — FD vs AEVO</span>
+            </div>
+            <div className="chart-wrap"><ChartFDAccum cifras={cifras} meses={o.meses}/></div>
+          </div>
+          <FamiliesPanel cifras={cifras} activeFam={activeFam} onFamClick={setActiveFam}/>
+        </div>
+        <div className="panel" style={{paddingBottom:0}}>
+          <div className="panel-head">
+            <span className="panel-title">Desvio projetado vs orçado</span>
+            <span className="panel-meta">vermelho = estouro · verde = economia</span>
+          </div>
+          <div className="chart-wrap" style={{height:320}}><ChartDeviation cifras={cifras}/></div>
+        </div>
+        <CifrasTable cifras={cifras} meses={o.meses} activeFam={activeFam} onFamFilter={setActiveFam}/>
+        <div style={{textAlign:'center',fontSize:10,color:'var(--text-muted)',fontFamily:'var(--font-mono)',padding:'20px 0'}}>
+          AEVO ENERGIA · P&R EPC · Dados ref. ABR/2026 · {cifras.length} cifras · {o.meses.length} meses acompanhados
+        </div>
+      </main>}
+      {(view==='hist'||view==='fat'||view==='med') && <PFDashboard obra={obra} tab={view}/>}
+      {showImport && <ImportModal onClose={()=>setShowImport(false)} currentObra={obra} onDataLoaded={handleDataLoaded}/>}
+      <TweaksPanel title="Tweaks">
+        <TweakSection title="Aparência">
+          <TweakRadio label="Densidade" value={tweaks.density}
+            options={[{value:'compact',label:'Compacta'},{value:'normal',label:'Normal'},{value:'spacious',label:'Arejada'}]}
+            onChange={v=>setTweaks({density:v})}/>
+          <TweakRadio label="Cor de destaque" value={tweaks.accent}
+            options={[{value:'yellow',label:'Amarelo AEVO'},{value:'teal',label:'Teal'},{value:'amber',label:'Âmbar'},{value:'green',label:'Verde'}]}
+            onChange={v=>setTweaks({accent:v})}/>
+          <TweakRadio label="Tema" value={tweaks.theme}
+            options={[{value:'dark',label:'Escuro'},{value:'light',label:'Claro'}]}
+            onChange={v=>setTweaks({theme:v})}/>
+        </TweakSection>
+        <TweakSection title="Conteúdo">
+          <TweakToggle label="Painel de alertas" value={tweaks.showAlerts} onChange={v=>setTweaks({showAlerts:v})}/>
+          <TweakToggle label="Sparklines nos KPIs" value={tweaks.compactSparklines} onChange={v=>setTweaks({compactSparklines:v})}/>
+        </TweakSection>
+      </TweaksPanel>
+      </>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 
 </script>
 
